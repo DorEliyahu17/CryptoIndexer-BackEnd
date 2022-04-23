@@ -13,9 +13,12 @@
     "express": "^4.17.3",
     "less-middleware": "^3.1.0",
     "morgan": "^1.10.0",
-    "serve-favicon": "^2.5.0"
+    "serve-favicon": "^2.5.0",
+    "mongodb": "^2.2.11"
   },
   "devDependencies": {
+    "bcrypt": "^5.0.1",
+    "jsonwebtoken": "^8.5.1",
     "debug": "^4.3.4",
     "nodemon": "^2.0.15"
   }
