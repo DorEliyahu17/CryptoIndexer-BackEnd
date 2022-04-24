@@ -1,17 +1,113 @@
 var express = require("express");
 var router = express.Router();
 var mongo = require("../MongoDriver");
+var bcrypt = require("bcrypt");
+
+const okCode = 200;
+const serverErrorCode = 500;
 
 /***************** Access Control API *****************/
 
 /* GET users listing. */
-router.get("/login", function (req, res, next) {
-  res.send("respond with a resource");
+router.get("/login", async (req, res, next) => {
+  var resultsToSend = { success: false, data: "Invalid Username or Password" };
+  const attemptingUser = {
+    userName: req.body.userName,
+    password: req.body.password,
+  };
+  // const genericErrorMsg = 'Invalid Username or Password';
+  console.log(
+    "attemptingUser.userName=" +
+      attemptingUser.userName +
+      ", attemptingUser.password=" +
+      attemptingUser.password
+  );
+  if (attemptingUser.userName != null && attemptingUser.password != null) {
+    console.log(
+      "attemptingUser.userName=" +
+        attemptingUser.userName +
+        ", attemptingUser.password=" +
+        attemptingUser.password
+    );
+    await mongo
+      .findOne("Users", { userName: attemptingUser.userName }, false)
+      .then(async (result) => {
+        if (result !== null) {
+          const match = await bcrypt.compare(
+            attemptingUser.password,
+            result.password
+          );
+          if (match) {
+            resultsToSend["success"] = true;
+            resultsToSend["data"] = "login success";
+            res.send(resultsToSend);
+            // res.status(okCode).send(resultsToSend);
+          }
+        }
+        // resultsToSend['data'] = genericErrorMsg;
+        res.send(resultsToSend);
+        // res.status(serverErrorCode).send(genericErrorMsg);
+      })
+      .catch((err) => {
+        resultsToSend["data"] = err;
+        res.send(resultsToSend);
+        // res.status(serverErrorCode).send(err);
+      });
+  } else {
+    res.send(resultsToSend);
+    // res.status(serverErrorCode).send(resultsToSend);
+  }
 });
 
 /* GET users listing. */
-router.get("/signup", function (req, res, next) {
-  res.send("respond with a resource");
+router.get("/register", async (req, res, next) => {
+  var resultsToSend = { success: false, data: "Invalid Username or Password" };
+  const attemptingUser = {
+    userName: req.body.userName,
+    password: req.body.password,
+  };
+  // const genericErrorMsg = 'Invalid Username or Password';
+  console.log(
+    "attemptingUser.userName=" +
+      attemptingUser.userName +
+      ", attemptingUser.password=" +
+      attemptingUser.password
+  );
+  if (attemptingUser.userName != null && attemptingUser.password != null) {
+    console.log(
+      "attemptingUser.userName=" +
+        attemptingUser.userName +
+        ", attemptingUser.password=" +
+        attemptingUser.password
+    );
+    await mongo
+      .findOne("Users", { userName: attemptingUser.userName }, false)
+      .then(async (result) => {
+        if (result !== null) {
+          const match = await bcrypt.compare(
+            attemptingUser.password,
+            result.password
+          );
+          if (match) {
+            resultsToSend["success"] = true;
+            resultsToSend["data"] = "login success";
+            res.send(resultsToSend);
+            // res.status(okCode).send(resultsToSend);
+          }
+        }
+        // resultsToSend['data'] = genericErrorMsg;
+        res.send(resultsToSend);
+        // res.status(serverErrorCode).send(genericErrorMsg);
+      })
+      .catch((err) => {
+        resultsToSend["data"] = err;
+        res.send(resultsToSend);
+        // res.status(serverErrorCode).send(err);
+      });
+  } else {
+    res.send(resultsToSend);
+    // res.status(serverErrorCode).send(genericErrorMsg);
+  }
 });
 
 /***************** Admin Page API *****************/
