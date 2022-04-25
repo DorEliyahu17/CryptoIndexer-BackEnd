@@ -2,6 +2,7 @@ var express = require("express");
 var router = express.Router();
 var mongo = require("../MongoDriver");
 var bcrypt = require("bcrypt");
+var shell = require("shelljs");
 
 const okCode = 200;
 const serverErrorCode = 500;
@@ -108,6 +109,15 @@ router.get("/register", async (req, res, next) => {
     res.send(resultsToSend);
     // res.status(serverErrorCode).send(genericErrorMsg);
   }
+});
+
+/***************** Execute *****************/
+//example to pas dict from js to python
+router.get("/create-new-index", (req, res, next) => {
+  var dict = '{"BTC": 0.5, "ETH": 0.3, "SOL": 0.2}';
+  shell.exec("echo 'all Good!!!!'");
+  shell.exec("python test.py");
+  res.send("All Good!");
 });
 
 /***************** Admin Page API *****************/
