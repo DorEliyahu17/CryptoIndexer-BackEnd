@@ -113,10 +113,26 @@ router.get("/register", async (req, res, next) => {
 
 /***************** Execute *****************/
 //example to pas dict from js to python
+// router.post("/create-new-index", (req, res, next) => {
 router.get("/create-new-index", (req, res, next) => {
-  var dict = '{"BTC": 0.5, "ETH": 0.3, "SOL": 0.2}';
-  shell.exec("echo 'all Good!!!!'");
-  shell.exec("python test.py");
+  let coinsArr = req.query.coins.split(";");
+  let prcArr = req.query.prc.split(";");
+
+  let dict3 = {};
+  for (let i = 0; i < coinsArr.length; i++) {
+    dict3[coinsArr[i]] = prcArr[i];
+  }
+
+  shell.exec(
+    "python routes/test.py " + JSON.stringify(dict3),
+    {},
+    (err, result) => {
+      // result = result.replaceAll("'", '"');
+      let res = JSON.parse(result);
+      console.log(result);
+      console.log(res);
+    }
+  );
   res.send("All Good!");
 });
 
