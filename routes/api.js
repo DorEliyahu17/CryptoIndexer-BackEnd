@@ -124,7 +124,7 @@ router.get("/create-new-index", (req, res, next) => {
   }
 
   shell.exec(
-    "python routes/test.py " + JSON.stringify(dict3),
+    "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3),
     {},
     (err, result) => {
       // result = result.replaceAll("'", '"');
