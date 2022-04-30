@@ -136,6 +136,28 @@ router.get("/create-new-index", (req, res, next) => {
   res.send("All Good!");
 });
 
+router.get("/backtest-new-index", (req, res, next) => 
+{
+  let symbolsArr = req.query.symbols.split(";");
+  let weightsArr = req.query.weights.split(";");
+
+  let dict = {};
+  for (let i = 0; i < symbolsArr.length; i++)
+    dict[symbolsArr[i]] = weightsArr[i];
+  
+  shell.exec(
+    "python ../CryptoIndexer-Server/BacktestNewCustomIndex.py " + JSON.stringify(dict),
+    {},
+    (err, result) =>
+    {
+      let res = JSON.parse(result);
+      console.log(result);
+      console.log(res);
+    }
+  );
+  res.send("All Good!!!");
+});
+
 /***************** Admin Page API *****************/
 
 /* GET admins name and password listing. */
