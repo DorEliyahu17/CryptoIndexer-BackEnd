@@ -148,7 +148,7 @@ router.get("/create-new-index", (req, res, next) => {
   }
 
   shell.exec(
-    "python routes/test.py " + JSON.stringify(dict3), {},
+    "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3), {},
     (err, result) => {
       // result = result.replaceAll("'", '"');
       let res = JSON.parse(result);
@@ -225,6 +225,25 @@ router.get("/insert-one-example", (req, res, next) => {
     " to Community? " +
     isCommunity
   );
+});
+
+router.get("/backtest-new-index", (req, res, next) => {
+  let symbolsArr = req.query.symbols.split(";");
+  let weightsArr = req.query.weights.split(";");
+
+  let dict = {};
+  for (let i = 0; i < symbolsArr.length; i++)
+    dict[symbolsArr[i]] = weightsArr[i];
+
+  shell.exec(
+    "python ../CryptoIndexer-Server/BacktestNewCustomIndex.py " + JSON.stringify(dict), {},
+    (err, result) => {
+      let res = JSON.parse(result);
+      console.log(result);
+      console.log(res);
+    }
+  );
+  res.send("All Good!!!");
 });
 
 /***************** Admin Page API *****************/
