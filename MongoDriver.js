@@ -13,10 +13,12 @@ var mongo = require("mongodb").MongoClient;
 //   symbols: "symbols",
 // };
 
-var mainUrl = "mongodb://localhost:27017/CryptoIndexer-SystemDB";
-//var mainUrl = 'mongodb://192.168.1.15:27017/CryptoIndexer-SystemDB';
-var communityUrl = "mongodb://localhost:27017/CryptoIndexer-CommunityDB";
-//var communityUrl = 'mongodb://192.168.1.15:27017/CryptoIndexer-CommunityDB';
+// var mainUrl = "mongodb://localhost:27017/CryptoIndexer-SystemDB";
+// //var mainUrl = 'mongodb://192.168.1.15:27017/CryptoIndexer-SystemDB';
+// var communityUrl = "mongodb://localhost:27017/CryptoIndexer-CommunityDB";
+// //var communityUrl = 'mongodb://192.168.1.15:27017/CryptoIndexer-CommunityDB';
+const mainUrl = process.env.MAIN_DATABASE_URL;
+const communityUrl = process.env.COMMUNITY_DATABASE_URL;
 
 //drop collection
 exportMongo.dropCollection = function dropCollection(collection, isCommunity) {

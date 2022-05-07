@@ -1,68 +1,66 @@
-var express = require("express");
-var router = express.Router();
-var mongo = require("../MongoDriver");
-var bcrypt = require("bcrypt");
-var shell = require("shelljs");
+let express = require("express");
+let router = express.Router();
+let mongo = require("../MongoDriver");
+let bcrypt = require("bcrypt");
+let jwt = require("jsonwebtoken")
+let shell = require("shelljs");
+const authenticate = require('../utils/auth_middleware')
 
 const okCode = 200;
 const serverErrorCode = 500;
 
+/***************** Authentication Test API *****************/
+router.post("/au-test", authenticate, async (req, res, next) => {
+  res.send('All Good!');
+});
+
 /***************** Access Control API *****************/
 
-/* GET users listing. */
-router.get("/login", async (req, res, next) => {
-  var resultsToSend = {
+/* POST users listing. */
+router.post("/login", async (req, res, next) => {
+  let resultsToSend = {
     success: false,
-    data: "Invalid Username or Password"
+    data: ""
   };
-  const attemptingUser = {
-    userName: req.body.userName,
+  let attemptingUser = {
+    username: req.body.userName,
     password: req.body.password,
+    email: req.body.email
   };
-  // const genericErrorMsg = 'Invalid Username or Password';
-  console.log(
-    "attemptingUser.userName=" +
-    attemptingUser.userName +
-    ", attemptingUser.password=" +
-    attemptingUser.password
-  );
-  if (attemptingUser.userName != null && attemptingUser.password != null) {
-    console.log(
-      "attemptingUser.userName=" +
-      attemptingUser.userName +
-      ", attemptingUser.password=" +
-      attemptingUser.password
-    );
-    await mongo
-      .findOne("Users", {
-        userName: attemptingUser.userName
-      }, false)
-      .then(async (result) => {
-        if (result !== null) {
-          const match = await bcrypt.compare(
-            attemptingUser.password,
-            result.password
-          );
-          if (match) {
-            resultsToSend["success"] = true;
-            resultsToSend["data"] = "login success";
-            res.send(resultsToSend);
-            // res.status(okCode).send(resultsToSend);
-          }
+  if (attemptingUser.username != null && attemptingUser.username != '' &&
+    attemptingUser.password != null && attemptingUser.password.length > 1) {
+    await mongo.findOne("users", {
+      username: attemptingUser.username
+    }, false).then(async (result) => {
+      if (result["success"] && result["data"].length > 0) {
+        const user = result["data"][0];
+        const match = await bcrypt.compare(attemptingUser.password, user.password);
+        if (match) {
+          const accessToken = await jwt.sign({
+              'id': user._id
+            },
+            process.env.ACCESS_TOKEN_SECRET, {
+              expiresIn: process.env.JWT_TOKEN_EXPIRATION
+            }
+          )
+          resultsToSend["success"] = true;
+          resultsToSend["data"] = "login success";
+          resultsToSend["token"] = accessToken;
+          res.send(resultsToSend);
+        } else {
+          resultsToSend["data"] = "Invalid username or password";
+          res.send(resultsToSend);
         }
-        // resultsToSend['data'] = genericErrorMsg;
-        res.send(resultsToSend);
-        // res.status(serverErrorCode).send(genericErrorMsg);
-      })
-      .catch((err) => {
-        resultsToSend["data"] = err;
-        res.send(resultsToSend);
-        // res.status(serverErrorCode).send(err);
-      });
+      }
+    }).catch((err) => {
+      resultsToSend["data"] = err;
+      res.send(resultsToSend);
+    });
   } else {
+    resultsToSend["data"] = "Invalid username or password";
     res.send(resultsToSend);
-    // res.status(serverErrorCode).send(resultsToSend);
   }
+  // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
 });
 
 /* POST register new user. */
@@ -71,14 +69,11 @@ router.post("/register", async (req, res, next) => {
     success: false,
     data: ""
   };
-
   let attemptingUser = {
     username: req.body.userName,
     password: req.body.password,
     email: req.body.email
   };
-
-  console.log("attemptingUser.username=" + attemptingUser.username + ", attemptingUser.password=" + attemptingUser.password + ", attemptingUser.email=" + req.body.email);
   if (attemptingUser.username != null && attemptingUser.username != '' &&
     attemptingUser.password != null && attemptingUser.password.length > 1 &&
     attemptingUser.email != null && attemptingUser.email.indexOf('@') != -1) {
@@ -106,8 +101,6 @@ router.post("/register", async (req, res, next) => {
       if (resultsToSend["data"] === '') {
         const salt = await bcrypt.genSalt(10);
         const hashPass = await bcrypt.hash(attemptingUser.password, salt);
-        console.log("attemptingUser.username=" + attemptingUser.username + ", attemptingUser.password=" + attemptingUser.password);
-        console.log("salt=" + salt + ", hashPass=" + hashPass);
         attemptingUser.password = hashPass;
         attemptingUser.is_admin = false;
         mongo.insertOne(attemptingUser, "users").then((result) => {
