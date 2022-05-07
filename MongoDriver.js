@@ -3,6 +3,16 @@ var exportMongo = new Object();
 var objectId = require("mongodb").ObjectID;
 var mongo = require("mongodb").MongoClient;
 
+// const systemCollectionsList = {
+//   users: "users",
+//   bugs: "bugs",
+//   todo: "todos",
+//   supportedBrokers: "supported_brokers",
+//   wallets: "wallets",
+//   userInvestedIndexes: "user_invested_index",
+//   symbols: "symbols",
+// };
+
 var mainUrl = "mongodb://localhost:27017/CryptoIndexer-SystemDB";
 //var mainUrl = 'mongodb://192.168.1.15:27017/CryptoIndexer-SystemDB';
 var communityUrl = "mongodb://localhost:27017/CryptoIndexer-CommunityDB";
@@ -35,7 +45,7 @@ exportMongo.adminHomeStatus = function adminHomeStatus() {
     mongo.connect(mainUrl, function (err, db) {
       if (err != null)
         reject({
-          msg: "כבוי",
+          msg: "Couldn't connect to the Database.",
           color: "2",
           bugsNum: bugsNum,
           TodoNum: "-1",
@@ -43,24 +53,23 @@ exportMongo.adminHomeStatus = function adminHomeStatus() {
         });
       else {
         new Promise(function (resolve, reject) {
-          db.collection("Bugs").count({}, function (err, result) {
-            if (err != null) reject();
-            else {
-              bugsNum = result;
-              resolve();
-            }
-          });
-        })
-          .then(function () {
+            db.collection("bugs").count({}, function (err, result) {
+              if (err != null) reject();
+              else {
+                bugsNum = result;
+                resolve();
+              }
+            });
+          }).then(function () {
             new Promise(function (resolve, reject) {
-              db.collection("ToDo").count({}, function (err, result) {
-                if (err != null) reject();
-                else {
-                  TodoNum = result;
-                  resolve();
-                }
-              });
-            })
+                db.collection("ToDo").count({}, function (err, result) {
+                  if (err != null) reject();
+                  else {
+                    TodoNum = result;
+                    resolve();
+                  }
+                });
+              })
               .then(function () {
                 db.collection("ScanReports").count({}, function (err, result) {
                   if (err != null) reject();
@@ -94,10 +103,8 @@ exportMongo.adminHomeStatus = function adminHomeStatus() {
   });
 };
 
-//find all the collections from the db
-exportMongo.findCollectionsNameList = function findCollectionsNameList(
-  isCommunity
-) {
+//find all the collections from the system db
+exportMongo.findCollectionsNameList = function findCollectionsNameList(isCommunity) {
   var arr = [],
     i;
   var url = isCommunity ? communityUrl : mainUrl;
@@ -116,7 +123,9 @@ exportMongo.findCollectionsNameList = function findCollectionsNameList(
                 collections[i].s.name == "ScanReports"
               )
             ) {
-              arr[count] = { name: collections[i].s.name };
+              arr[count] = {
+                name: collections[i].s.name
+              };
               count++;
             }
           }
@@ -140,7 +149,9 @@ exportMongo.findAdminCollection = function findAdminCollection() {
         db.collections().then(function (collections) {
           for (i = 0; i < collections.length; i++) {
             if (collections[i].s.name == "Admins")
-              collection = { name: collections[i].s.name };
+              collection = {
+                name: collections[i].s.name
+              };
           }
           db.close();
           if (err != null) reject(err);
@@ -175,15 +186,23 @@ exportMongo.findOne = function findOne(collection, objectToFind, isCommunity) {
   var url = isCommunity ? communityUrl : mainUrl;
   return new Promise(function (resolve, reject) {
     mongo.connect(url, function (err, db) {
-      if (err != null) reject(err);
-      else {
-        db.collection(collection)
-          .find(objectToFind)
-          .toArray(function (err, result) {
-            db.close();
-            if (err != null) reject(err);
-            resolve([result, adminName, adminPassword]);
+      if (err != null) {
+        reject({
+          success: false,
+          error: err
+        });
+      } else {
+        db.collection(collection).find(objectToFind).toArray(function (err, result) {
+          db.close();
+          if (err != null) reject({
+            success: false,
+            error: err
           });
+          resolve({
+            success: true,
+            data: result
+          });
+        });
       }
     });
   });
@@ -243,7 +262,10 @@ exportMongo.findSpec = function findSpec(
             if (size != "" && date != "") {
               db.collection(server)
                 .find({
-                  name: { $regex: fileName, $options: "m" },
+                  name: {
+                    $regex: fileName,
+                    $options: "m"
+                  },
                   type: fileType,
                   size: parseInt(size),
                   modifiedDate: parseInt(date),
@@ -263,12 +285,22 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
                     size: parseInt(size),
-                    $and: [
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -279,7 +311,10 @@ exportMongo.findSpec = function findSpec(
               } else {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
                     size: parseInt(size),
                   })
@@ -299,12 +334,22 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
                     modifiedDate: parseInt(date),
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -315,7 +360,10 @@ exportMongo.findSpec = function findSpec(
               } else {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
                     modifiedDate: parseInt(date),
                   })
@@ -336,13 +384,31 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -359,11 +425,21 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
-                    $and: [
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -380,11 +456,21 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -402,7 +488,10 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     type: fileType,
                   })
                   .toArray(function (err, results) {
@@ -419,7 +508,10 @@ exportMongo.findSpec = function findSpec(
             if (size != "" && date != "") {
               db.collection(server)
                 .find({
-                  name: { $regex: fileName, $options: "m" },
+                  name: {
+                    $regex: fileName,
+                    $options: "m"
+                  },
                   size: parseInt(size),
                   modifiedDate: parseInt(date),
                 })
@@ -438,11 +530,21 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     size: parseInt(size),
-                    $and: [
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -453,7 +555,10 @@ exportMongo.findSpec = function findSpec(
               } else {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     size: parseInt(size),
                   })
                   .toArray(function (err, results) {
@@ -472,11 +577,21 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     modifiedDate: parseInt(date),
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -487,7 +602,10 @@ exportMongo.findSpec = function findSpec(
               } else {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                     modifiedDate: parseInt(date),
                   })
                   .toArray(function (err, results) {
@@ -507,12 +625,30 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -529,10 +665,20 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
-                    $and: [
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
+                    $and: [{
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -549,10 +695,20 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -570,7 +726,10 @@ exportMongo.findSpec = function findSpec(
               ) {
                 db.collection(server)
                   .find({
-                    name: { $regex: fileName, $options: "m" },
+                    name: {
+                      $regex: fileName,
+                      $options: "m"
+                    },
                   })
                   .toArray(function (err, results) {
                     db.close();
@@ -607,9 +766,16 @@ exportMongo.findSpec = function findSpec(
                   .find({
                     type: fileType,
                     size: parseInt(size),
-                    $and: [
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -641,9 +807,16 @@ exportMongo.findSpec = function findSpec(
                   .find({
                     type: fileType,
                     modifiedDate: parseInt(date),
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -675,11 +848,26 @@ exportMongo.findSpec = function findSpec(
                 db.collection(server)
                   .find({
                     type: fileType,
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -697,9 +885,16 @@ exportMongo.findSpec = function findSpec(
                 db.collection(server)
                   .find({
                     type: fileType,
-                    $and: [
-                      { modifiedDate: { $gte: parseInt(dateRangeLow) } },
-                      { modifiedDate: { $lte: parseInt(dateRangeHigh) } },
+                    $and: [{
+                        modifiedDate: {
+                          $gte: parseInt(dateRangeLow)
+                        }
+                      },
+                      {
+                        modifiedDate: {
+                          $lte: parseInt(dateRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -717,9 +912,16 @@ exportMongo.findSpec = function findSpec(
                 db.collection(server)
                   .find({
                     type: fileType,
-                    $and: [
-                      { size: { $gte: parseInt(sizeRangeLow) } },
-                      { size: { $lte: parseInt(sizeRangeHigh) } },
+                    $and: [{
+                        size: {
+                          $gte: parseInt(sizeRangeLow)
+                        }
+                      },
+                      {
+                        size: {
+                          $lte: parseInt(sizeRangeHigh)
+                        }
+                      },
                     ],
                   })
                   .toArray(function (err, results) {
@@ -759,15 +961,23 @@ exportMongo.insertOne = function insertOne(document, collection, isCommunity) {
   return new Promise(function (resolve, reject) {
     mongo.connect(url, function (err, db) {
       //check if the the function didn't return error
-      if (err != null) reject(err);
+      if (err != null) reject({
+        success: false,
+        error: err
+      });
       else {
         db.collection(collection).insertOne(document, function (err) {
+          db.close();
           //check if the the function didn't return error
-          if (err != null) reject(err);
-          else {
-            db.close();
-            if (err != null) reject(err);
-            resolve({ msg: "OK" });
+          if (err != null) {
+            reject({
+              success: false,
+              error: err
+            });
+          } else {
+            resolve({
+              success: true
+            });
           }
         });
       }
@@ -811,8 +1021,9 @@ exportMongo.deleteArr = function deleteArr(
       if (err != null) reject(err);
       else {
         for (i = 0; i < documentIDArr.length - 1; i++) {
-          db.collection(collection).deleteOne(
-            { _id: objectId.createFromHexString(documentIDArr[i]) },
+          db.collection(collection).deleteOne({
+              _id: objectId.createFromHexString(documentIDArr[i])
+            },
             function (err, result) {
               db.close();
               //check if the the function didn't return error
@@ -843,7 +1054,11 @@ exportMongo.scanReportsSortByYear = function scanReportsSortByYear() {
       if (err != null) reject(err);
       else {
         db.collection("ScanReports").aggregate(
-          [{ $sort: { year: 1 } }],
+          [{
+            $sort: {
+              year: 1
+            }
+          }],
           function (err, result) {
             db.close();
             if (err != null) reject(err);
