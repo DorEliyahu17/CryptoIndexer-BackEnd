@@ -3,6 +3,7 @@ var router = express.Router();
 var mongo = require("../MongoDriver");
 var bcrypt = require("bcrypt");
 var shell = require("shelljs");
+var {spawn} = require("child_process");
 
 const okCode = 200;
 const serverErrorCode = 500;
@@ -122,18 +123,20 @@ router.get("/create-new-index", (req, res, next) => {
   for (let i = 0; i < coinsArr.length; i++) {
     dict3[coinsArr[i]] = prcArr[i];
   }
-
-  shell.exec(
-    "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3),
-    {},
-    (err, result) => {
-      // result = result.replaceAll("'", '"');
-      let res = JSON.parse(result);
-      console.log(result);
-      console.log(res);
-    }
-  );
-  res.send("All Good!");
+  
+  // shell.exec(
+  //   "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3),
+  //   {},
+  //   (err, result) => {
+  //     let res = JSON.parse(result);
+  //     console.log(result);
+  //     console.log(res);
+  //   }
+  // );
+  let message = null;
+  var python = spawn("python", ["../CryptoIndexer-Server/test2.py", JSON.stringify(dict3)]);
+  //python.stdout.on("data", (data) => message = JSON.parse(data) );
+  python.on("close", (code) => res.send(message));
 });
 
 router.get("/backtest-new-index", (req, res, next) => 
@@ -145,6 +148,18 @@ router.get("/backtest-new-index", (req, res, next) =>
   for (let i = 0; i < symbolsArr.length; i++)
     dict[symbolsArr[i]] = weightsArr[i];
   
+  
+  var python = spawn('python', ['../CryptoIndexer-Server/BacktestNewCustomIndex.py', JSON.stringify(dict)]);
+  let backtestResult = null;
+  python.stdout.on("data", (data) => 
+    { 
+      backtestResult = JSON.parse(data); 
+    });
+  python.on("close", (code) => {
+    console.log('Python finished with code ' + code);
+    res.send(backtestResult['data']);
+  });
+/*
   shell.exec(
     "python ../CryptoIndexer-Server/BacktestNewCustomIndex.py " + JSON.stringify(dict),
     {},
@@ -156,6 +171,7 @@ router.get("/backtest-new-index", (req, res, next) =>
     }
   );
   res.send("All Good!!!");
+*/
 });
 
 /***************** Admin Page API *****************/
