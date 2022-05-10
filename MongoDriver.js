@@ -63,14 +63,16 @@ exportMongo.insertArr = async (collection, documents, isCommunity = false) => {
 };
 
 //delete one document feom the db
-exportMongo.deleteOne = async (collection, document, isCommunity = false) => {
+exportMongo.deleteOne = async (collection, document, isCommunity = false, isConnected = false) => {
   let resultsToSend = {
     success: false,
     data: ''
   };
 
   try {
-    await client.connect();
+    if (!isConnected) {
+      await client.connect();
+    }
     const result = await client.db(isCommunity ? communityDB : mainDB).collection(collection).deleteOne(document);
     if (result.deletedCount === 1) {
       resultsToSend["success"] = true;
@@ -86,25 +88,28 @@ exportMongo.deleteOne = async (collection, document, isCommunity = false) => {
   }
 };
 
-// //delete arr of documents from the db
-// exportMongo.deleteArr = async(documentsArr, collection, isCommunity = false) => {
-//   let resultsToSend = {
-//     success: false,
-//     data: ''
-//   };
+//delete arr of documents from the db
+exportMongo.deleteArr = async (collection, documentsArr, isCommunity = false) => {
+  let resultsToSend = {
+    success: false,
+    data: ''
+  };
 
-//   try {
-//     await client.connect();
-//     await client.db(isCommunity ? communityDB : mainDB).collection(collection).deleteMany(documentIDArr);
-//     resultsToSend["success"] = true;
-//     resultsToSend["data"] = 'deleted successfully.';
-//   } catch (e) {
-//     resultsToSend["data"] = e.toString();
-//   } finally {
-//     await client.close();
-//     return resultsToSend;
-//   }
-// };
+  try {
+    await client.connect();
+    const result = await documentsArr.map(async (document) => {
+      await exportMongo.deleteOne(collection, document, isCommunity, true);
+    })
+    // await client.db(isCommunity ? communityDB : mainDB).collection(collection).deleteMany(documentIDArr);
+    // resultsToSend["success"] = true;
+    resultsToSend["data"] = 'deleted successfully.';
+  } catch (e) {
+    resultsToSend["data"] = e.toString();
+  } finally {
+    await client.close();
+    return resultsToSend;
+  }
+};
 
 //find one document from one of the collections in the db
 exportMongo.findOne = async (collection, objectToFind, options = {}, isCommunity = false) => {
