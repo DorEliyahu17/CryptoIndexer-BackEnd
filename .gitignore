@@ -31,3 +31,8 @@ npm-debug.log
 
 # python scripts
 python_scripts
+
+
+
+openssl rand -out openssl-secret.txt -hex 64
+openssl rand -out openssl-refresh-secret.txt -hex 64
