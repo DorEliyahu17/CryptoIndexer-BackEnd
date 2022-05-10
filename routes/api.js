@@ -3,7 +3,8 @@ const router = express.Router();
 const mongo = require("../MongoDriver");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken")
-const shell = require("shelljs");
+// const shell = require("shelljs");
+const { spawn } = require("child_process");
 const authenticate = require('../utils/auth_middleware')
 
 const okCode = 200;
@@ -185,17 +186,20 @@ router.post("/create-new-index", (req, res, next) => {
   for (let i = 0; i < coinsArr.length; i++) {
     dict3[coinsArr[i]] = prcArr[i];
   }
-
-  shell.exec(
-    "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3), {},
-    (err, result) => {
-      // result = result.replaceAll("'", '"');
-      let res = JSON.parse(result);
-      console.log(result);
-      console.log(res);
-    }
-  );
-  res.send("All Good!");
+  
+  // shell.exec(
+  //   "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3),
+  //   {},
+  //   (err, result) => {
+  //     let res = JSON.parse(result);
+  //     console.log(result);
+  //     console.log(res);
+  //   }
+  // );
+  let message = null;
+  var python = spawn("python", ["../CryptoIndexer-Server/test2.py", JSON.stringify(dict3)]);
+  //python.stdout.on("data", (data) => message = JSON.parse(data) );
+  python.on("close", (code) => res.send(message));
 });
 
 router.post("/insert-one-example", (req, res, next) => {
@@ -273,13 +277,29 @@ router.get("/backtest-new-index", (req, res, next) => {
   let dict = {};
   for (let i = 0; i < symbolsArr.length; i++)
     dict[symbolsArr[i]] = weightsArr[i];
-
-  shell.exec("python ../CryptoIndexer-Server/BacktestNewCustomIndex.py " + JSON.stringify(dict), {}, (err, result) => {
-    let res = JSON.parse(result);
-    console.log(result);
-    console.log(res);
+  
+  
+  var python = spawn('python', ['../CryptoIndexer-Server/BacktestNewCustomIndex.py', JSON.stringify(dict)]);
+  let backtestResult = null;
+  python.stdout.on("data", (data) => 
+    { 
+      backtestResult = JSON.parse(data); 
+    });
+  python.on("close", (code) => {
+    console.log('Python finished with code ' + code);
+    res.send(backtestResult['data']);
   });
+/*
+  shell.exec(
+    "python ../CryptoIndexer-Server/BacktestNewCustomIndex.py " + JSON.stringify(dict), {},
+    (err, result) => {
+      let res = JSON.parse(result);
+      console.log(result);
+      console.log(res);
+    }
+  );
   res.send("All Good!!!");
+*/
 });
 
 /***************** Admin Page API *****************/
