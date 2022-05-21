@@ -179,13 +179,20 @@ router.get("/users-list", async (req, res, next) => {
 /***************** Execute *****************/
 //example to pas dict from js to python
 router.post("/create-new-index", (req, res, next) => {
-  let coinsArr = req.query.coins.split(";");
-  let prcArr = req.query.prc.split(";");
+  let data = req.body.data;
+  console.log(data);
+  let message = null;
+  let python = spawn("python", ["../CryptoIndexer-Server/test2.py", data]);
+  //python.stdout.on("data", (data) => message = JSON.parse(data) );
+  python.on("close", (code) => res.send(message));
 
-  let dict3 = {};
-  for (let i = 0; i < coinsArr.length; i++) {
-    dict3[coinsArr[i]] = prcArr[i];
-  }
+
+  // let coinsArr = req.query.coins.split(";");
+  // let prcArr = req.query.prc.split(";");
+  // let dict3 = {};
+  // for (let i = 0; i < coinsArr.length; i++) {
+    // dict3[coinsArr[i]] = prcArr[i];
+  // }
   
   // shell.exec(
   //   "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3),
@@ -196,10 +203,10 @@ router.post("/create-new-index", (req, res, next) => {
   //     console.log(res);
   //   }
   // );
-  let message = null;
-  var python = spawn("python", ["../CryptoIndexer-Server/test2.py", JSON.stringify(dict3)]);
-  //python.stdout.on("data", (data) => message = JSON.parse(data) );
-  python.on("close", (code) => res.send(message));
+  // let message = null;
+  // let python = spawn("python", ["../CryptoIndexer-Server/test2.py", JSON.stringify(dict3)]);
+  // //python.stdout.on("data", (data) => message = JSON.parse(data) );
+  // python.on("close", (code) => res.send(message));
 });
 
 router.post("/insert-one-example", (req, res, next) => {
@@ -271,36 +278,39 @@ router.post("/insert-one-example", (req, res, next) => {
 });
 
 router.get("/backtest-new-index", (req, res, next) => {
-  let symbolsArr = req.query.symbols.split(";");
-  let weightsArr = req.query.weights.split(";");
-
-  let dict = {};
-  for (let i = 0; i < symbolsArr.length; i++)
-    dict[symbolsArr[i]] = weightsArr[i];
-  
-  
-  var python = spawn('python', ['../CryptoIndexer-Server/BacktestNewCustomIndex.py', JSON.stringify(dict)]);
-  let backtestResult = null;
-  python.stdout.on("data", (data) => 
-    { 
-      backtestResult = JSON.parse(data); 
+  let data = JSON.parse(req.query.data);
+  if (data) {
+    let python = spawn('python', ['../CryptoIndexer-Server/BacktestNewCustomIndex.py', JSON.stringify(data)]);
+    let backtestResult = null;
+    python.stdout.on("data", (data) => { 
+     backtestResult = JSON.parse(data); 
     });
-  python.on("close", (code) => {
-    console.log('Python finished with code ' + code);
-    res.send(backtestResult['data']);
-  });
-/*
-  shell.exec(
-    "python ../CryptoIndexer-Server/BacktestNewCustomIndex.py " + JSON.stringify(dict), {},
-    (err, result) => {
-      let res = JSON.parse(result);
-      console.log(result);
-      console.log(res);
-    }
-  );
-  res.send("All Good!!!");
-*/
+    python.on("close", (code) => {
+      console.log('Python finished with code ' + code);
+      res.send(backtestResult);
+    });
+  } else {
+    res.send({ "success": False, "data": '' })
+  }
 });
+
+
+/***************** Home Page API *****************/
+
+router.get("/popular-indexes-list", async (req, res, next) => {
+  //test findAll
+  // let result = await mongo.findAll('users');
+
+  //test findAll with object
+  // let result = await mongo.findAll('users', {
+  //   name: 'aa'
+  // });
+
+  res.send(result);
+})
+
+
+
 
 /***************** Admin Page API *****************/
 
