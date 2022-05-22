@@ -294,6 +294,15 @@ router.get("/backtest-new-index", (req, res, next) => {
   }
 });
 
+/***************** DataBase Utills API *****************/
+router.get("/supported-symbols-list", async (req, res, next) => {
+  let result = await mongo.findAll('symbols');
+  res.send(result)
+});
+
+
+
+
 
 /***************** Home Page API *****************/
 
