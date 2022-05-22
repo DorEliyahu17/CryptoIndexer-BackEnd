@@ -332,6 +332,33 @@ router.get("/own-indexes", (req, res, next) => {
   }
 });
 
+router.post("/buy-index", function (req, res, next) {
+  mongo.insertOne({
+      userName: req.query.userName,
+      indexName: req.query.indexName,
+      funding: req.query.funding,
+    },
+    "users"
+  ).then(function (result) {
+    res.send(result);
+  }).catch(function (err) {
+    res.send(err);
+  });
+});
+
+router.post("/sell-index", function (req, res, next) {
+  mongo.insertOne({
+      userName: req.query.userName,
+      indexName: req.query.indexName,
+      funding: req.query.funding,
+    },
+    "users"
+  ).then(function (result) {
+    res.send(result);
+  }).catch(function (err) {
+    res.send(err);
+  });
+});
 
 
 /***************** Admin Page API *****************/
