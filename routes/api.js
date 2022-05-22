@@ -318,6 +318,19 @@ router.get("/popular-indexes-list", async (req, res, next) => {
   res.send(result);
 })
 
+router.get("/most-successful-users-list", async (req, res, next) => {
+  //todo: find the most successful users
+  let result = await mongo.findAll('users');
+  res.send(result)
+});
+
+router.get("/own-indexes", (req, res, next) => {
+  let data = JSON.parse(req.query.data);
+  if (data) {
+    let result = await mongo.find('users',{name: data});
+    res.send(result)
+  }
+});
 
 
 
