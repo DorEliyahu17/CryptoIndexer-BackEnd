@@ -6,10 +6,14 @@ const jwt = require("jsonwebtoken")
 // const shell = require("shelljs");
 const { spawn } = require("child_process");
 const authenticate = require('../utils/auth_middleware')
+const { createHash } = require('crypto');
 
 const okCode = 200;
 const serverErrorCode = 500;
 
+function costumeHash(string) {
+  return createHash('sha256').update(string).digest('hex');
+}
 
 router.post("/test", async (req, res, next) => {
   //test insertOne
@@ -178,13 +182,29 @@ router.get("/users-list", async (req, res, next) => {
 
 /***************** Execute *****************/
 //example to pas dict from js to python
-router.post("/create-new-index", (req, res, next) => {
-  let data = req.body.data;
+router.post("/create-new-index", async (req, res, next) => {
+  let data = JSON.parse(req.body.data);
   console.log(data);
-  let message = null;
-  let python = spawn("python", ["../CryptoIndexer-Server/test2.py", data]);
+  let index_hash = costumeHash(data.symbolToPrice.toString());
+  console.log(index_hash);
+  let result = await mongo.insertOne('indexes', {
+    index_hash: index_hash,
+    creator_username,
+    symbols_weight: data.symbolToPrice
+  });
+
+
+
+
+
+
+
+
+
+  // let message = null;
+  // let python = spawn("python", ["../CryptoIndexer-Server/test2.py", data]);
   //python.stdout.on("data", (data) => message = JSON.parse(data) );
-  python.on("close", (code) => res.send(message));
+  // python.on("close", (code) => res.send(message));
 
 
   // let coinsArr = req.query.coins.split(";");
@@ -320,14 +340,22 @@ router.get("/popular-indexes-list", async (req, res, next) => {
 
 router.get("/most-successful-users-list", async (req, res, next) => {
   //todo: find the most successful users
-  let result = await mongo.findAll('users');
-  res.send(result)
+  let allIndexes = await mongo.findAll('indexes');
+  let top10IndexesByUsersCount = [];
+  allIndexes.map(async (indexObject) => {
+    let usersCount = await mongo.findAll('users_indexes', {'indexes.index_hash': indexObject.index_hash});
+    top10IndexesByUsersCount.push({indexName: indexObject.name, creator_username: indexObject.creatorUsername, countOfUsers: usersCount["data"].count});
+  });
+  top10IndexesByUsersCount.sort((a, b) => (a.countOfUsers > b.countOfUsers) ? 1 : -1)
+  console.log(top10IndexesByUsersCount.slice(0,10));
+  // console.log(result.data[0].api_keys['binance']);
+  res.send(top10IndexesByUsersCount.slice(0,10))
 });
 
-router.get("/own-indexes", (req, res, next) => {
+router.get("/own-indexes", async (req, res, next) => {
   let data = JSON.parse(req.query.data);
   if (data) {
-    let result = await mongo.find('users',{name: data});
+    let result = await mongo.findAll('users', {name: data});
     res.send(result)
   }
 });
