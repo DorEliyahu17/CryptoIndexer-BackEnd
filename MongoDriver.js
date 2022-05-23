@@ -153,7 +153,7 @@ exportMongo.findAll = async (collection, objectToFind = {}, options = {}, sort =
       resultsToSend["data"] = 'No documents found!';
     } else {
       resultsToSend["success"] = true;
-      resultsToSend["data"] = result;
+      resultsToSend["data"] = { result: result, count: result.length };
     }
   } catch (e) {
     resultsToSend["data"] = e.toString();
