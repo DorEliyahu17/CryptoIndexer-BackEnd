@@ -454,14 +454,18 @@ router.get("/most-successful-users-list", async (req, res, next) => {
   //todo: find the most successful users
   let allIndexes = await mongo.findAll('indexes');
   let top10IndexesByUsersCount = [];
-  allIndexes.map(async (indexObject) => {
-    let usersCount = await mongo.findAll('users_indexes', {'indexes.index_hash': indexObject.index_hash});
-    top10IndexesByUsersCount.push({indexName: indexObject.name, creator_username: indexObject.creatorUsername, countOfUsers: usersCount["data"].count});
-  });
-  top10IndexesByUsersCount.sort((a, b) => (a.countOfUsers > b.countOfUsers) ? 1 : -1)
-  console.log(top10IndexesByUsersCount.slice(0,10));
-  // console.log(result.data[0].api_keys['binance']);
-  res.send(top10IndexesByUsersCount.slice(0,10))
+  if(allIndexes.data.count > 0) {
+    allIndexes.result.map(async (indexObject) => {
+      let usersCount = await mongo.findAll('users_indexes', {'indexes.index_hash': indexObject.index_hash});
+      top10IndexesByUsersCount.push({indexName: indexObject.name, creator_username: indexObject.creatorUsername, countOfUsers: usersCount["data"].count});
+    });
+    top10IndexesByUsersCount.sort((a, b) => (a.countOfUsers > b.countOfUsers) ? 1 : -1)
+    console.log(top10IndexesByUsersCount.slice(0,10));
+    // console.log(result.data[0].api_keys['binance']);
+    res.send(top10IndexesByUsersCount.slice(0,10))
+  } else {
+    res.send(allIndexes);
+  }
 });
 
 router.get("/own-indexes", async (req, res, next) => {
