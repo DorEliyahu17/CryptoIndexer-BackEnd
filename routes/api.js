@@ -471,37 +471,87 @@ router.get("/most-successful-users-list", async (req, res, next) => {
 router.get("/own-indexes", async (req, res, next) => {
   let data = JSON.parse(req.query.data);
   if (data) {
-    let result = await mongo.findAll('users', {name: data});
+    let result = await mongo.findAll('users_indexes', {name: data});
     res.send(result.indexes)
   }
 });
 
-router.post("/buy-index", function (req, res, next) {
-  mongo.insertOne({
+router.post("/buy-or-sell-index", function (req, res, next) {
+  let resultsToSend = {
+    success: false,
+    data: ""
+  };
+  let isExistResult = await mongo.findOne('transactions', 
+    {
+      username: req.body.username,
+      index_hash: req.body.index_hash,
+    });
+  if (isExistResult.success && isExistResult.count > 0) {
+    let tempFunding = isExistResult.result.funding;
+    tempFunding.push(req.body.transactionData);
+    let updateResult = await mongo.updateOne('transactions', {
       userName: req.query.userName,
       indexName: req.query.indexName,
-      funding: req.query.funding,
-    },
-    "users"
-  ).then(function (result) {
-    res.send(result);
-  }).catch(function (err) {
-    res.send(err);
-  });
-});
+      fundigs: tempFunding,
+    });
 
-router.post("/sell-index", function (req, res, next) {
-  mongo.insertOne({
+    let sumOfFunding = updateResult.fundigs.map(f => sumOfFunding +=f);
+    if(sumOfFunding == 0)
+    {
+      let userIndexes = await mongo.findOne('users_indexes', {name: data});
+      userIndexes.indexes = userIndexes.indexes.filter(i => i.hash == req.body.index_hash)
+        let result = await mongo.updateOne('users_indexes', {
+          userName: req.query.userName,
+          indexes: userIndexes.indexes,
+        });
+    }
+
+    /*************** need to fix after testing returned data object from update one function ***************/
+    if (insertResult["success"] && insertResult["data"] === "inserted successfully.") {
+      resultsToSend["success"] = true;
+      resultsToSend["data"] = 'transaction updated successfully';
+    } else {
+      resultsToSend["data"] = insertResult["data"];
+    }
+    res.send(updateResult);
+
+
+  } else {
+    let insertResult = await mongo.insertOne('transactions', {
+      userName: req.body.userName,
+      indexName: req.body.indexName,
+      funding: [req.body.transactionData],
+    });
+    if (insertResult["success"] && insertResult["data"] === "inserted successfully.") {
+      resultsToSend["success"] = true;
+      resultsToSend["data"] = 'transaction created successfully';
+    } else {
+      resultsToSend["data"] = insertResult["data"];
+    }
+
+
+    let isUserExistInIserIndexes = await mongo.findOne('users_indexes', 
+    {
+      username: req.body.username
+    });
+  if (isUserExistInIserIndexes.success && isUserExistInIserIndexes.count > 0) {
+    let tempIndexes = isUserExistInIserIndexes.result.indexes;
+    tempIndexes.push(req.body.transactionData);
+    let updateResult = await mongo.updateOne('users_indexes', {
       userName: req.query.userName,
-      indexName: req.query.indexName,
-      funding: req.query.funding,
-    },
-    "users"
-  ).then(function (result) {
-    res.send(result);
-  }).catch(function (err) {
-    res.send(err);
-  });
+      indexes: tempIndexes,
+    });
+  }
+  else{
+    let insertUser_index = await mongo.insertOne('users_indexes', {
+      userName: req.body.userName,
+      indexes: [req.body.transactionData],
+    });
+  }
+
+  }
+
+  
 });
 
 
