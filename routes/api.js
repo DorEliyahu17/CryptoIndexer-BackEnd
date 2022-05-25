@@ -490,8 +490,8 @@ router.post("/buy-or-sell-index", function (req, res, next) {
     let tempFunding = isExistResult.result.funding;
     tempFunding.push(req.body.transactionData);
     let updateResult = await mongo.updateOne('transactions', {
-      userName: req.query.userName,
-      indexName: req.query.indexName,
+      userName: req.body.userName,
+      indexName: req.body.indexName,
       fundigs: tempFunding,
     });
 
@@ -501,7 +501,7 @@ router.post("/buy-or-sell-index", function (req, res, next) {
       let userIndexes = await mongo.findOne('users_indexes', {name: data});
       userIndexes.indexes = userIndexes.indexes.filter(i => i.hash == req.body.index_hash)
         let result = await mongo.updateOne('users_indexes', {
-          userName: req.query.userName,
+          userName: req.body.userName,
           indexes: userIndexes.indexes,
         });
     }
