@@ -150,13 +150,13 @@ exportMongo.findAll = async (collection, objectToFind = {}, options = {}, sort =
     await client.connect();
     const result = await client.db(isCommunity ? communityDB : mainDB).collection(collection).find(objectToFind, optionsWithProjection).sort(sort).toArray();
     if ((await result.length) === 0) {
-      resultsToSend["data"] = 'No documents found!';
+      resultsToSend["data"] = { result: 'No documents found!', count: 0 };
     } else {
       resultsToSend["success"] = true;
       resultsToSend["data"] = { result: result, count: result.length };
     }
   } catch (e) {
-    resultsToSend["data"] = e.toString();
+    resultsToSend["data"] = { result: e.toString() };
   } finally {
     await client.close();
     return resultsToSend;

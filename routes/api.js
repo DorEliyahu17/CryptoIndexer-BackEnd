@@ -320,6 +320,118 @@ router.get("/supported-symbols-list", async (req, res, next) => {
   res.send(result)
 });
 
+router.get("/content", async (req, res, next) => {
+  //let result = await mongo.findAll('symbols');
+  const tiers = [
+    {
+      title: 'yotam',
+      price: '0',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+    },
+    {
+      title: '1 st',
+      subheader: 'Most popular',
+      price: '15+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+  
+    },
+    {
+      title: '3 rd',
+      price: '10+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+  
+    },
+    {
+      title: 'Nasdaq Crypto Index',
+      price: '23+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'Crypto10',
+      price: '12+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'Bitwise 10',
+      price: '30',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'CRYPTO20',
+      price: '22+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'SPBTC',
+      price: '2.5+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'DeFi Pulse Index',
+      price: '11+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'SPCMC',
+      price: '7+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'All Crypto Index',
+      price: '8+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'Major Crypto Index',
+      price: '30+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+  ];
+  res.send(tiers)
+});
+
 
 
 
@@ -342,14 +454,18 @@ router.get("/most-successful-users-list", async (req, res, next) => {
   //todo: find the most successful users
   let allIndexes = await mongo.findAll('indexes');
   let top10IndexesByUsersCount = [];
-  allIndexes.map(async (indexObject) => {
-    let usersCount = await mongo.findAll('users_indexes', {'indexes.index_hash': indexObject.index_hash});
-    top10IndexesByUsersCount.push({indexName: indexObject.name, creator_username: indexObject.creatorUsername, countOfUsers: usersCount["data"].count});
-  });
-  top10IndexesByUsersCount.sort((a, b) => (a.countOfUsers > b.countOfUsers) ? 1 : -1)
-  console.log(top10IndexesByUsersCount.slice(0,10));
-  // console.log(result.data[0].api_keys['binance']);
-  res.send(top10IndexesByUsersCount.slice(0,10))
+  if(allIndexes.data.count > 0) {
+    allIndexes.result.map(async (indexObject) => {
+      let usersCount = await mongo.findAll('users_indexes', {'indexes.index_hash': indexObject.index_hash});
+      top10IndexesByUsersCount.push({indexName: indexObject.name, creator_username: indexObject.creatorUsername, countOfUsers: usersCount["data"].count});
+    });
+    top10IndexesByUsersCount.sort((a, b) => (a.countOfUsers > b.countOfUsers) ? 1 : -1)
+    console.log(top10IndexesByUsersCount.slice(0,10));
+    // console.log(result.data[0].api_keys['binance']);
+    res.send(top10IndexesByUsersCount.slice(0,10))
+  } else {
+    res.send(allIndexes);
+  }
 });
 
 router.get("/own-indexes", async (req, res, next) => {
