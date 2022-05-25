@@ -356,7 +356,7 @@ router.get("/own-indexes", async (req, res, next) => {
   let data = JSON.parse(req.query.data);
   if (data) {
     let result = await mongo.findAll('users', {name: data});
-    res.send(result)
+    res.send(result.indexes)
   }
 });
 
