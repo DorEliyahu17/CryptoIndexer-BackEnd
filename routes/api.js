@@ -304,7 +304,7 @@ router.get("/backtest-new-index", (req, res, next) => {
     initialCash = 1000;
   }
   if (data) {
-    let python = spawn('python', ['../CryptoIndexer-Server/BacktestNewCustomIndex.py', JSON.stringify(data), initialCash]);
+    let python = spawn('python', ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
     let backtestResult = null;
     python.stdout.on("data", (data) => { 
      backtestResult = JSON.parse(data); 
