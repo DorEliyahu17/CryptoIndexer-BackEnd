@@ -187,6 +187,7 @@ router.post("/create-new-index", async (req, res, next) => {
   console.log(data);
   let index_hash = costumeHash(data.symbolToPrice.toString());
   console.log(index_hash);
+  // wait for resiter and sing in operations
   let result = await mongo.insertOne('indexes', {
     index_hash: index_hash,
     creator_username,
