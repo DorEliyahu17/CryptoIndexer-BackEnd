@@ -319,6 +319,28 @@ router.get("/backtest-new-index", (req, res, next) => {
   }
 });
 
+router.get("/backtest-exist-index", (req, res, next) => {
+  //TODO - get the symbols and weights from the mongo then backtest with the cash from the front
+  let data = JSON.parse(req.query.data);
+  let initialCash = req.query.initialCash;
+  if(!!!initialCash) {
+    initialCash = 1000;
+  }
+  if (data) {
+    let python = spawn('python', ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
+    let backtestResult = null;
+    python.stdout.on("data", (data) => { 
+     backtestResult = JSON.parse(data); 
+    });
+    python.on("close", (code) => {
+      console.log('Python finished with code ' + code);
+      res.send(backtestResult);
+    });
+  } else {
+    res.send({ "success": False, "data": '' })
+  }
+});
+
 /***************** DataBase Utills API *****************/
 router.get("/supported-symbols-list", async (req, res, next) => {  
   let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
