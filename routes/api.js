@@ -341,8 +341,32 @@ router.get("/supported-symbols-list", async (req, res, next) => {
   // res.send(result)
 });
 
+router.get("/home-page-supported-symbols-list", async (req, res, next) => {  
+  let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
+  let result = {"success": false, "data": 'Python Error'};
+  
+  python.stderr.setEncoding('utf-8');
+  python.stderr.on("data", (data) =>
+  {
+    console.log(data.toString())
+  });
+  
+  python.stdout.setEncoding('utf-8');
+  python.stdout.on("data", (data) => { 
+    result = JSON.parse(data); 
+  });
+
+  python.on("close", (code) => {
+    console.log('Python finished with code ' + code);
+    res.send(result);
+  });
+  // res.send(result)
+});
+
 router.get("/content", async (req, res, next) => {
   //let result = await mongo.findAll('symbols');
+  // res.send(result)
+
   const tiers = [
     {
       title: 'yotam',
