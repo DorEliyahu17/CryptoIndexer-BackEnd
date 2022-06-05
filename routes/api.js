@@ -366,6 +366,8 @@ router.get("/home-page-supported-symbols-list", async (req, res, next) => {
 
 router.get("/content", async (req, res, next) => {
   //let result = await mongo.findAll('symbols');
+  // res.send(result)
+
   const tiers = [
     {
       title: 'yotam',
