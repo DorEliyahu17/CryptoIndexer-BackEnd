@@ -299,8 +299,12 @@ router.post("/insert-one-example", (req, res, next) => {
 
 router.get("/backtest-new-index", (req, res, next) => {
   let data = JSON.parse(req.query.data);
+  let initialCash = req.query.initialCash;
+  if(!!!initialCash) {
+    initialCash = 1000;
+  }
   if (data) {
-    let python = spawn('python', ['../CryptoIndexer-Server/BacktestNewCustomIndex.py', JSON.stringify(data)]);
+    let python = spawn('python', ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
     let backtestResult = null;
     python.stdout.on("data", (data) => { 
      backtestResult = JSON.parse(data); 
@@ -316,8 +320,27 @@ router.get("/backtest-new-index", (req, res, next) => {
 
 /***************** DataBase Utills API *****************/
 router.get("/supported-symbols-list", async (req, res, next) => {
-  let result = await mongo.findAll('symbols');
-  res.send(result)
+  // let result = await mongo.findAll('symbols');
+  // res.send(result)
+  let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
+  let result = {"success": false, "data": 'Python Error'};
+  
+  python.stderr.setEncoding('utf-8');
+  python.stderr.on("data", (data) =>
+  {
+    console.log(data.toString())
+  });
+  
+  python.stdout.setEncoding('utf-8');
+  python.stdout.on("data", (data) => { 
+    result = JSON.parse(data); 
+  });
+
+  python.on("close", (code) => {
+    console.log('Python finished with code ' + code);
+    res.send(result);
+  });
+  // res.send(result)
 });
 
 router.get("/content", async (req, res, next) => {
