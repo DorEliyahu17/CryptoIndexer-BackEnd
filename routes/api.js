@@ -528,14 +528,14 @@ router.post("/buy-or-sell-index", function (req, res, next) {
   };
   let isExistResult = await mongo.findOne('transactions', 
     {
-      username: req.body.username,
+      userToken: req.body.userToken,
       index_hash: req.body.index_hash,
     });
   if (isExistResult.success && isExistResult.count > 0) {
     let tempFunding = isExistResult.result.funding;
     tempFunding.push(req.body.transactionData);
     let updateResult = await mongo.updateOne('transactions', {
-      userName: req.body.userName,
+      userToken: req.body.userToken,
       indexName: req.body.indexName,
       fundigs: tempFunding,
     });
@@ -563,7 +563,7 @@ router.post("/buy-or-sell-index", function (req, res, next) {
 
   } else {
     let insertResult = await mongo.insertOne('transactions', {
-      userName: req.body.userName,
+      userToken: req.body.userToken,
       indexName: req.body.indexName,
       funding: [req.body.transactionData],
     });
