@@ -79,14 +79,15 @@ router.post("/login", async (req, res, next) => {
     data: ""
   };
   let attemptingUser = {
-    username: req.body.userName,
     password: req.body.password,
     email: req.body.email
   };
-  if (attemptingUser.username != null && attemptingUser.username != '' &&
+  try {
+    if (attemptingUser.email != null && attemptingUser.email != '' &&
     attemptingUser.password != null && attemptingUser.password.length > 1) {
-    let result = await mongo.findOne('users', { username: attemptingUser.username });
-    if (result["success"] && result["data"] != null) {
+      let result = {}
+    //let result = await mongo.findOne('users', { email: attemptingUser.email });
+    if (result.success && result.data != null) {
       const user = result["data"];
       const match = await bcrypt.compare(attemptingUser.password, user.password);
       if (match) {
@@ -96,14 +97,19 @@ router.post("/login", async (req, res, next) => {
         resultsToSend["token"] = accessToken;
         res.send(resultsToSend);
       } else {
-        resultsToSend["data"] = "Invalid username or password";
+        resultsToSend["data"] = "Invalid email or password";
         res.send(resultsToSend);
       }
     }
-  } else {
-    resultsToSend["data"] = "Invalid username or password";
+   else {
+    resultsToSend["data"] = "Invalid email or password";
     res.send(resultsToSend);
+  }}
+  } catch (error) {
+    console.log(error)
+    res.status(404).send({error})
   }
+ 
   // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
 });
 
