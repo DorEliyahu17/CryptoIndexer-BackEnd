@@ -15,7 +15,8 @@
     "less-middleware": "^3.1.0",
     "mongodb": "^4.5.0",
     "morgan": "^1.10.0",
-    "serve-favicon": "^2.5.0"
+    "serve-favicon": "^2.5.0",
+    "suger": "^1.0.9"
   },
   "devDependencies": {
     "bcrypt": "^5.0.1",
