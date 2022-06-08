@@ -82,12 +82,10 @@ router.post("/login", async (req, res, next) => {
     password: req.body.password,
     email: req.body.email
   };
-  try {
-    if (attemptingUser.email != null && attemptingUser.email != '' &&
+  if (attemptingUser.email != null && attemptingUser.email != '' &&
     attemptingUser.password != null && attemptingUser.password.length > 1) {
-      let result = {}
-    //let result = await mongo.findOne('users', { email: attemptingUser.email });
-    if (result.success && result.data != null) {
+    let result = await mongo.findOne('users', { email: attemptingUser.email });
+    if (result["success"] && result["data"] != null) {
       const user = result["data"];
       const match = await bcrypt.compare(attemptingUser.password, user.password);
       if (match) {
@@ -105,10 +103,6 @@ router.post("/login", async (req, res, next) => {
     resultsToSend["data"] = "Invalid email or password";
     res.send(resultsToSend);
   }}
-  } catch (error) {
-    console.log(error)
-    res.status(404).send({error})
-  }
  
   // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
 });
