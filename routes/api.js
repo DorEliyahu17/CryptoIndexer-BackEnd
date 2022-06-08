@@ -544,7 +544,7 @@ router.get("/own-indexes", async (req, res, next) => {
   }
 });
 
-router.post("/buy-or-sell-index", function (req, res, next) {
+router.post("/buy-or-sell-index", async function (req, res, next) {
   let resultsToSend = {
     success: false,
     data: ""
