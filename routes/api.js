@@ -290,39 +290,6 @@ router.post("/create-new-index", async (req, res, next) => {
         res.status(serverErrorCode).send();
       }
   }
-
-
-
-
-
-
-
-  // let message = null;
-  // let python = spawn("python", ["../CryptoIndexer-Server/test2.py", data]);
-  //python.stdout.on("data", (data) => message = JSON.parse(data) );
-  // python.on("close", (code) => res.send(message));
-
-
-  // let coinsArr = req.query.coins.split(";");
-  // let prcArr = req.query.prc.split(";");
-  // let dict3 = {};
-  // for (let i = 0; i < coinsArr.length; i++) {
-    // dict3[coinsArr[i]] = prcArr[i];
-  // }
-  
-  // shell.exec(
-  //   "python ../CryptoIndexer-Server/test2.py " + JSON.stringify(dict3),
-  //   {},
-  //   (err, result) => {
-  //     let res = JSON.parse(result);
-  //     console.log(result);
-  //     console.log(res);
-  //   }
-  // );
-  // let message = null;
-  // let python = spawn("python", ["../CryptoIndexer-Server/test2.py", JSON.stringify(dict3)]);
-  // //python.stdout.on("data", (data) => message = JSON.parse(data) );
-  // python.on("close", (code) => res.send(message));
 });
 
 router.post("/insert-one-example", (req, res, next) => {
@@ -632,12 +599,28 @@ router.get("/most-successful-users-list", async (req, res, next) => {
 
 router.get("/own-indexes", async (req, res, next) => {
   let data = JSON.parse(req.query.data);
-  // if (data) {
-    //TODO: change me 
-    let result = await mongo.findAll('users_indexes', {creator_username: 'admin'});
-    res.send(result)
-  // }
-  // res.send({success: false, data: 'change me'});
+  //TODO: replace 603+604 with 607
+  const userTokenTemp = new ObjectID('62a118fc71d51e9b0469eb00');
+  let userFromToken = { 'id': userTokenTemp, 'username': 'admin' };
+
+  // let userFromToken = await decriptUserFromToken(data);
+
+  let indexesToPass = [];
+  let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken.id });
+  if(userIndexes.success) {
+    userIndexes = userIndexes.data.result.indexes;
+    for (let indexNumber = 0; indexNumber < userIndexes.length; indexNumber++) {
+      let indexData = await mongo.findOne('indexes', { index_hash: userIndexes[indexNumber].index_hash });
+      if(indexData.success) {
+        indexesToPass.push({symbolToPrice: indexData.data.result.symbols_weight, indexName: userIndexes[indexNumber].name});
+      } else {
+        res.send({success: false, data: 'Error: Something went wrong...'});
+      }
+    }
+    res.send({success: true, data: indexesToPass})
+  } else {
+    res.send({success: false, data: 'Error: Something went wrong...'});
+  }
 });
 
 router.post("/buy-or-sell-index", async function (req, res, next) {
