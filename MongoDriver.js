@@ -112,15 +112,17 @@ exportMongo.deleteArr = async (collection, documentsArr, isCommunity = false) =>
 };
 
 //find one document from one of the collections in the db
-exportMongo.findOne = async (collection, objectToFind, options = {}, isCommunity = false) => {
+exportMongo.findOne = async (collection, objectToFind, options = {}, isCommunity = false, includeId = false) => {
   let resultsToSend = {
     success: false,
     data: ''
   };
   let optionsWithProjection = options
-  optionsWithProjection['projection'] = {
-    _id: 0
-  };
+  if(!includeId) {
+    optionsWithProjection['projection'] = {
+      _id: 0
+    };
+  }
 
   try {
     await client.connect();
@@ -168,7 +170,7 @@ exportMongo.findAll = async (collection, objectToFind = {}, options = {}, sort =
 };
 
 //find one document from one of the collections in the db
-exportMongo.updateOne = async (collection, objectToFind, options = {}, isCommunity = false) => {
+exportMongo.updateOne = async (collection, objectToFind, objectToUpdate, options = {}, isCommunity = false) => {
   let resultsToSend = {
     success: false,
     data: ''
@@ -180,7 +182,7 @@ exportMongo.updateOne = async (collection, objectToFind, options = {}, isCommuni
 
   try {
     await client.connect();
-    const result = await client.db(isCommunity ? communityDB : mainDB).collection(collection).updateOne(objectToFind, optionsWithProjection);
+    const result = await client.db(isCommunity ? communityDB : mainDB).collection(collection).updateOne(objectToFind, { $set: objectToUpdate }, optionsWithProjection);
     resultsToSend["success"] = true;
     resultsToSend["data"] = result;
   } catch (e) {

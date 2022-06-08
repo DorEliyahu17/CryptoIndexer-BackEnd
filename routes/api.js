@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const mongo = require("../MongoDriver");
+const {
+  ObjectID
+} = require("mongodb");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken")
 // const shell = require("shelljs");
@@ -13,6 +16,13 @@ const serverErrorCode = 500;
 
 function costumeHash(string) {
   return createHash('sha256').update(string).digest('hex');
+}
+
+async function decriptUserFromToken(userToken) {
+  let decodedUserData = await jwt.decode(userToken);
+  delete decodedUserData.iat;
+  delete decodedUserData.exp;
+  return decodedUserData;
 }
 
 router.post("/test", async (req, res, next) => {
@@ -34,12 +44,12 @@ router.post("/test", async (req, res, next) => {
   // });
 
   //test deleteArr
-  let result = await mongo.deleteArr('users', [{
-    name: 'aa'
-  },
-  {
-    name: 'bb'
-  }]);
+  // let result = await mongo.deleteArr('users', [{
+  //   name: 'aa'
+  // },
+  // {
+  //   name: 'bb'
+  // }]);
 
 
   //test findOne
@@ -55,10 +65,23 @@ router.post("/test", async (req, res, next) => {
   //   name: 'aa'
   // });
 
+  //test UpdateOne
+  let result = await mongo.updateOne('users', { username: 'aaa' }, { username: 'aa' });
+
   res.send(result);
-})
+});
 
-
+router.get("/test2", async (req, res, next) => {
+  let user = await mongo.findOne('users', { username: 'admin' }, includeId=true);
+  // console.log(user.data.result);
+  let userToken = await jwt.sign({ 'id': user.data.result._id, 'username': user.data.result.username }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.JWT_TOKEN_EXPIRATION })
+  // console.log(userToken);
+  let result = await decriptUserFromToken(userToken);
+  // console.log(result);
+  let findTest = await mongo.findOne('users', { _id: user.data.result._id }, includeId=true);
+  console.log(findTest.data.result);
+  res.send(result);
+});
 
 
 
@@ -84,7 +107,7 @@ router.post("/login", async (req, res, next) => {
   };
   if (attemptingUser.email != null && attemptingUser.email != '' &&
     attemptingUser.password != null && attemptingUser.password.length > 1) {
-    let result = await mongo.findOne('users', { email: attemptingUser.email });
+    let result = await mongo.findOne('users', { email: attemptingUser.email }, includeId=true);
     if (result["success"] && result["data"] != null) {
       const user = result["data"];
       const match = await bcrypt.compare(attemptingUser.password, user.password);
@@ -116,11 +139,15 @@ router.post("/register", async (req, res, next) => {
   let attemptingUser = {
     username: req.body.userName,
     password: req.body.password,
-    email: req.body.email
+    email: req.body.email,
+    is_admin: false,
+    api_keys: req.body.apiKeys
   };
+
   if (attemptingUser.username != null && attemptingUser.username != '' &&
     attemptingUser.password != null && attemptingUser.password.length > 1 &&
-    attemptingUser.email != null && attemptingUser.email.indexOf('@') != -1) {
+    attemptingUser.email != null && attemptingUser.email.indexOf('@') != -1 &&
+    attemptingUser.api_keys != null) {
     let usernameResult = await mongo.findOne('users', { username: attemptingUser.username });
     if (usernameResult["success"] && usernameResult["data"] != null) {
       resultsToSend["data"] = "Username is already taken";
@@ -134,13 +161,24 @@ router.post("/register", async (req, res, next) => {
         const salt = await bcrypt.genSalt(10);
         const hashPass = await bcrypt.hash(attemptingUser.password, salt);
         attemptingUser.password = hashPass;
-        attemptingUser.is_admin = false;
-        let result = await mongo.insertOne('users', attemptingUser);
-        if (result["success"] && result["data"] === "inserted successfully.") {
-          resultsToSend["success"] = true;
-          resultsToSend["data"] = 'User created successfully';
+        let resultInsertUser = await mongo.insertOne('users', attemptingUser);
+        if (resultInsertUser["success"] && resultInsertUser["data"] === "inserted successfully.") {
+          // resultsToSend["success"] = true;
+          // resultsToSend["data"] = 'User created successfully';
+          let findCreatedUser = await mongo.findOne('users', attemptingUser, includeId=true);
+          let userIndexes = {
+            user_id: findCreatedUser.data.result._id,
+            indexes: []
+          };
+          let resultInsertUserIndexes = await mongo.insertOne('users_indexes', userIndexes);
+          if (resultInsertUserIndexes["success"] && resultInsertUserIndexes["data"] === "inserted successfully.") {
+            resultsToSend["success"] = true;
+            resultsToSend["data"] = 'User created successfully';
+          } else {
+            resultsToSend["data"] = resultInsertUserIndexes["data"];
+          }
         } else {
-          resultsToSend["data"] = result["data"];
+          resultsToSend["data"] = resultInsertUser["data"];
         }
         res.send(resultsToSend);
       } else {
@@ -187,14 +225,71 @@ router.post("/create-new-index", async (req, res, next) => {
   console.log(data);
   let index_hash = costumeHash(data.symbolToPrice.toString());
   console.log(index_hash);
+  let isIndexExist = await mongo.findAll('indexes', { index_hash: index_hash });
+
+  //TODO: replace 231+232 with 234
+  const userTokenTemp = new ObjectID('62a118fc71d51e9b0469eb00');
+  let userFromToken = { 'id': userTokenTemp, 'username': 'admin' };
+  
+  // let userFromToken = await decriptUserFromToken(data.userToken);
+
   // wait for resiter and sing in operations
-  let result = await mongo.insertOne('indexes', {
-    index_hash: index_hash,
-    creator_username,
-    symbols_weight: data.symbolToPrice
-  });
-
-
+  // TODO: change later to find user by id from the userToken
+  let userFromUsersIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken.id }, includeId=true);
+  
+  if(isIndexExist.success) {
+    /*
+      index already exist
+    */
+    //create or update users_indexes by user_id
+    if(userFromUsersIndexes.success) {
+      if (userFromUsersIndexes.data.result.indexes.findIndex(indexObject => indexObject.index_hash === index_hash) === -1) {
+        //user found and index is not created
+        userFromUsersIndexes.data.result.indexes.push({
+          index_hash: index_hash,
+          name: data.indexName,
+          is_private: true
+        });
+        let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken.id }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
+        if (updateUserIndexes["success"] && updateUserIndexes["data"]["modifiedCount"] === 1) {
+          res.status(okCode).send();
+        } else {
+          res.status(serverErrorCode).send();
+        }
+      } else {
+        //user found and index is already created by him
+        res.status(serverErrorCode).send();
+      }
+    } else {
+      //user not found
+      res.status(serverErrorCode).send();
+    }
+  } else {
+    /*
+      first time creating the index
+    */
+      let result = await mongo.insertOne('indexes', {
+        index_hash: index_hash,
+        creator_username: userFromToken.username,
+        symbols_weight: data.symbolToPrice
+      });  
+      if(result.success) {
+        //user found and index is not created
+        userFromUsersIndexes.data.result.indexes.push({
+          index_hash: index_hash,
+          name: data.indexName,
+          is_private: true
+        });
+        let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken.id }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
+        if (updateUserIndexes["success"] && updateUserIndexes["data"]["modifiedCount"] === 1) {
+          res.status(okCode).send();
+        } else {
+          res.status(serverErrorCode).send();
+        }
+      } else {
+        res.status(serverErrorCode).send();
+      }
+  }
 
 
 
@@ -383,7 +478,6 @@ router.get("/home-page-supported-symbols-list", async (req, res, next) => {
     console.log('Python finished with code ' + code);
     res.send(result);
   });
-  // res.send(result)
 });
 
 router.get("/content", async (req, res, next) => {
@@ -523,7 +617,7 @@ router.get("/most-successful-users-list", async (req, res, next) => {
   let allIndexes = await mongo.findAll('indexes');
   let top10IndexesByUsersCount = [];
   if(allIndexes.data.count > 0) {
-    allIndexes.result.map(async (indexObject) => {
+    allIndexes.data.result.map(async (indexObject) => {
       let usersCount = await mongo.findAll('users_indexes', {'indexes.index_hash': indexObject.index_hash});
       top10IndexesByUsersCount.push({indexName: indexObject.name, creator_username: indexObject.creatorUsername, countOfUsers: usersCount["data"].count});
     });
@@ -538,11 +632,12 @@ router.get("/most-successful-users-list", async (req, res, next) => {
 
 router.get("/own-indexes", async (req, res, next) => {
   let data = JSON.parse(req.query.data);
-  if (data) {
-    let result = await mongo.findAll('users_indexes', {name: data});
+  // if (data) {
+    //TODO: change me 
+    let result = await mongo.findAll('users_indexes', {creator_username: 'admin'});
     res.send(result)
-  }
-  res.send({success: false, data: 'change me'});
+  // }
+  // res.send({success: false, data: 'change me'});
 });
 
 router.post("/buy-or-sell-index", async function (req, res, next) {
