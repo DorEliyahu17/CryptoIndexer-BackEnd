@@ -365,7 +365,7 @@ router.get("/supported-symbols-list", async (req, res, next) => {
 });
 
 router.get("/home-page-supported-symbols-list", async (req, res, next) => {  
-  let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
+  let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsPrices.py']);
   let result = {"success": false, "data": 'Python Error'};
   
   python.stderr.setEncoding('utf-8');
@@ -540,8 +540,9 @@ router.get("/own-indexes", async (req, res, next) => {
   let data = JSON.parse(req.query.data);
   if (data) {
     let result = await mongo.findAll('users_indexes', {name: data});
-    res.send(result.indexes)
+    res.send(result)
   }
+  res.send({success: false, data: 'change me'});
 });
 
 router.post("/buy-or-sell-index", async function (req, res, next) {
