@@ -127,11 +127,11 @@ exportMongo.findOne = async (collection, objectToFind, options = {}, isCommunity
   try {
     await client.connect();
     const result = await client.db(isCommunity ? communityDB : mainDB).collection(collection).findOne(objectToFind, optionsWithProjection);
-    if ((await result.length) === 0) {
+    if (!result) {
       resultsToSend["data"] = { result: 'No documents found!', count: 0 };
     } else {
       resultsToSend["success"] = true;
-      resultsToSend["data"] = { result: result, count: result.length };
+      resultsToSend["data"] = { result: result, count: 1 };
     }
   } catch (e) {
     resultsToSend["data"] = e.toString();

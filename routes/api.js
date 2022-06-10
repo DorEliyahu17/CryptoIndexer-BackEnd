@@ -12,6 +12,7 @@ const authenticate = require('../utils/auth_middleware')
 const { createHash } = require('crypto');
 
 const okCode = 200;
+const clientReqHasProblem = 400;
 const serverErrorCode = 500;
 
 function costumeHash(string) {
@@ -223,7 +224,8 @@ router.get("/users-list", async (req, res, next) => {
 router.post("/create-new-index", async (req, res, next) => {
   let data = JSON.parse(req.body.data);
   console.log(data);
-  let index_hash = costumeHash(data.symbolToPrice.toString());
+
+  let index_hash = costumeHash(JSON.stringify(data.symbolToPrice));
   console.log(index_hash);
   let isIndexExist = await mongo.findAll('indexes', { index_hash: index_hash });
 
@@ -236,33 +238,42 @@ router.post("/create-new-index", async (req, res, next) => {
   // wait for resiter and sing in operations
   // TODO: change later to find user by id from the userToken
   let userFromUsersIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken.id }, includeId=true);
-  
+  let isUserIndexNameExist = await mongo.findOne('users_indexes', { user_id: userFromToken.id, indexes: {$elemMatch: {name: data.indexName}} }, includeId=true);
+  let isUserIndexExist = await mongo.findOne('users_indexes', { user_id: userFromToken.id, indexes: {$elemMatch: {index_hash: index_hash}} }, includeId=true);
   if(isIndexExist.success) {
     /*
       index already exist
     */
     //create or update users_indexes by user_id
     if(userFromUsersIndexes.success) {
-      if (userFromUsersIndexes.data.result.indexes.findIndex(indexObject => indexObject.index_hash === index_hash) === -1) {
-        //user found and index is not created
-        userFromUsersIndexes.data.result.indexes.push({
-          index_hash: index_hash,
-          name: data.indexName,
-          is_private: true
-        });
-        let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken.id }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
-        if (updateUserIndexes["success"] && updateUserIndexes["data"]["modifiedCount"] === 1) {
-          res.status(okCode).send();
+      if (!isUserIndexNameExist.success) {
+        if (!isUserIndexExist.success) {
+          //user found and index is not created and index name is not created by him
+          userFromUsersIndexes.data.result.indexes.push({
+            index_hash: index_hash,
+            name: data.indexName,
+            is_private: true
+          });
+          let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken.id }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
+          if (updateUserIndexes["success"] && updateUserIndexes["data"]["modifiedCount"] === 1) {
+            res.status(okCode).send();
+          } else {
+            res.status(serverErrorCode).send();
+          }
         } else {
-          res.status(serverErrorCode).send();
+          //index is already created by him
+          res.statusMessage = "You have already created this Index.";
+          res.status(clientReqHasProblem).send();
         }
       } else {
-        //user found and index is already created by him
-        res.status(serverErrorCode).send();
+        //index name already taken
+        res.statusMessage = "This Index name is already taken.";
+        res.status(clientReqHasProblem).send();
       }
     } else {
       //user not found
-      res.status(serverErrorCode).send();
+      res.statusMessage = "This user has a problem, try to contact us for support.";
+      res.status(clientReqHasProblem).send();
     }
   } else {
     /*
