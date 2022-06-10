@@ -625,12 +625,12 @@ router.get("/own-indexes", async (req, res, next) => {
       if(indexData.success) {
         indexesToPass.push({symbolToPrice: indexData.data.result.symbols_weight, indexName: userIndexes[indexNumber].name});
       } else {
-        res.send({success: false, data: 'Error: Something went wrong...'});
+        res.send({success: false, data: indexData.data});
       }
     }
     res.send({success: true, data: indexesToPass})
   } else {
-    res.send({success: false, data: 'Error: Something went wrong...'});
+    res.send({success: false, data: userIndexes.data});
   }
 });
 
