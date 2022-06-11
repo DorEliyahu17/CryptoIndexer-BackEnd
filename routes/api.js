@@ -133,16 +133,17 @@ router.post("/login", async (req, res, next) => {
 
 /* POST register new user. */
 router.post("/register", async (req, res, next) => {
+  const data = JSON.parse(req.body.data);
   let resultsToSend = {
     success: false,
     data: ""
   };
   let attemptingUser = {
-    username: req.body.userName,
-    password: req.body.password,
-    email: req.body.email,
+    username: data.userName,
+    password: data.password,
+    email: data.email,
     is_admin: false,
-    api_keys: req.body.apiKeys
+    api_keys: data.apiKey
   };
 
   if (attemptingUser.username != null && attemptingUser.username != '' &&
@@ -173,24 +174,28 @@ router.post("/register", async (req, res, next) => {
           };
           let resultInsertUserIndexes = await mongo.insertOne('users_indexes', userIndexes);
           if (resultInsertUserIndexes["success"] && resultInsertUserIndexes["data"] === "inserted successfully.") {
-            resultsToSend["success"] = true;
-            resultsToSend["data"] = 'User created successfully';
+            // resultsToSend["success"] = true;
+            // resultsToSend["data"] = 'User created successfully';
+            res.send(resultsToSend);
           } else {
-            resultsToSend["data"] = resultInsertUserIndexes["data"];
+            res.statusMessage = resultInsertUserIndexes["data"];
+            res.status(serverErrorCode).send();
           }
         } else {
-          resultsToSend["data"] = resultInsertUser["data"];
+          res.statusMessage = resultInsertUser["data"];
+          res.status(serverErrorCode).send();
         }
-        res.send(resultsToSend);
       } else {
-        res.send(resultsToSend);
+        res.statusMessage = resultsToSend["data"];
+        res.status(clientReqHasProblem).send();
       }
     } else {
-      res.send(resultsToSend);
+      res.statusMessage = resultsToSend["data"];
+      res.status(clientReqHasProblem).send();
     }
   } else {
-    resultsToSend["data"] = "Invalid username or password";
-    res.send(resultsToSend);
+    res.statusMessage = "Invalid username or password";
+    res.status(clientReqHasProblem).send();
   }
   // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
 });
