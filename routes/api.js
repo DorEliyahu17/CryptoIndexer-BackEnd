@@ -234,17 +234,13 @@ router.post("/create-new-index", async (req, res, next) => {
   let index_hash = costumeHash(JSON.stringify(data.symbolToPrice));
   let isIndexExist = await mongo.findAll('indexes', { index_hash: index_hash });
 
-  //TODO: replace 231+232 with 234
-  const userTokenTemp = new ObjectID('62a118fc71d51e9b0469eb00');
-  let userFromToken = { 'id': userTokenTemp, 'username': 'admin' };
-  
-  // let userFromToken = await decriptUserFromToken(data.userToken);
+  let userTokenTemp = await decriptUserFromToken(data.userToken);
+  const userFromToken = new ObjectID(userTokenTemp);
 
-  // wait for resiter and sing in operations
-  // TODO: change later to find user by id from the userToken
-  let userFromUsersIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken.id }, includeId=true);
-  let isUserIndexNameExist = await mongo.findOne('users_indexes', { user_id: userFromToken.id, indexes: {$elemMatch: {name: data.indexName}} }, includeId=true);
-  let isUserIndexExist = await mongo.findOne('users_indexes', { user_id: userFromToken.id, indexes: {$elemMatch: {index_hash: index_hash}} }, includeId=true);
+  let user = await mongo.findOne('users', { _id: userFromToken }, includeId=true);
+  let userFromUsersIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken }, includeId=true);
+  let isUserIndexNameExist = await mongo.findOne('users_indexes', { user_id: userFromToken, indexes: {$elemMatch: {name: data.indexName}} }, includeId=true);
+  let isUserIndexExist = await mongo.findOne('users_indexes', { user_id: userFromToken, indexes: {$elemMatch: {index_hash: index_hash}} }, includeId=true);
   if(isIndexExist.success) {
     /*
       index already exist
@@ -259,8 +255,8 @@ router.post("/create-new-index", async (req, res, next) => {
             name: data.indexName,
             is_private: true
           });
-          let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken.id }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
-          if (updateUserIndexes["success"] && updateUserIndexes["data"]["modifiedCount"] === 1) {
+          let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
+          if (updateUserIndexes.success && updateUserIndexes.data.modifiedCount === 1) {
             res.status(okCode).send();
           } else {
             res.status(serverErrorCode).send();
@@ -286,7 +282,7 @@ router.post("/create-new-index", async (req, res, next) => {
     */
       let result = await mongo.insertOne('indexes', {
         index_hash: index_hash,
-        creator_username: userFromToken.username,
+        creator_username: user.data.result.username,
         symbols_weight: data.symbolToPrice
       });  
       if(result.success) {
@@ -296,8 +292,8 @@ router.post("/create-new-index", async (req, res, next) => {
           name: data.indexName,
           is_private: true
         });
-        let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken.id }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
-        if (updateUserIndexes["success"] && updateUserIndexes["data"]["modifiedCount"] === 1) {
+        let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
+        if (updateUserIndexes.success && updateUserIndexes.data.modifiedCount === 1) {
           res.status(okCode).send();
         } else {
           res.status(serverErrorCode).send();
@@ -614,23 +610,20 @@ router.get("/most-successful-users-list", async (req, res, next) => {
 });
 
 router.get("/own-indexes", async (req, res, next) => {
-  let data = JSON.parse(req.query.data);
-  //TODO: replace 603+604 with 607
-  const userTokenTemp = new ObjectID('62a118fc71d51e9b0469eb00');
-  let userFromToken = { 'id': userTokenTemp, 'username': 'admin' };
-
-  // let userFromToken = await decriptUserFromToken(data);
-
+  let data = req.query.data;
+  let userTokenTemp = await decriptUserFromToken(data);
+  const userFromToken = new ObjectID(userTokenTemp.id);
   let indexesToPass = [];
-  let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken.id });
-  if(userIndexes.success) {
+  let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken });
+  let user = await mongo.findOne('users', { _id: userFromToken });
+  if(userIndexes.success && user.success) {
     userIndexes = userIndexes.data.result.indexes;
     for (let indexNumber = 0; indexNumber < userIndexes.length; indexNumber++) {
       let indexData = await mongo.findOne('indexes', { index_hash: userIndexes[indexNumber].index_hash });
       let countInvestingUsers = 0;
       let canBePublic = false;
       if(indexData.success) {
-        if(indexData.data.result.creator_username === userFromToken.username) {
+        if(indexData.data.result.creator_username === user.data.result.username) {
           if(!userIndexes[indexNumber].is_private) {
             //public index
             countInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: {index_hash: userIndexes[indexNumber].index_hash}} }, includeId=true);
@@ -639,7 +632,6 @@ router.get("/own-indexes", async (req, res, next) => {
             canBePublic = true;
           }
         }
-        // indexesToPass.push({symbolToPrice: indexData.data.result.symbols_weight, indexName: userIndexes[indexNumber].name});
         indexesToPass.push({
           indexHash: indexData.data.result.index_hash,
           indexName: userIndexes[indexNumber].name,
