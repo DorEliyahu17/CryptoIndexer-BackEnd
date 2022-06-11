@@ -23,6 +23,11 @@ async function decriptUserFromToken(userToken) {
   return decodedUserData;
 }
 
+async function createUserToken(user) {
+  const accessToken = await jwt.sign({ 'id': user._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.JWT_TOKEN_EXPIRATION });
+  return accessToken;
+}
+
 router.post("/test", async (req, res, next) => {
   //test insertOne
   // let result = await mongo.insertOne('users', {
@@ -95,34 +100,37 @@ router.post("/au-test", authenticate, async (req, res, next) => {
 
 /* POST users listing. */
 router.post("/login", async (req, res, next) => {
+  const data = JSON.parse(req.body.data)
   let resultsToSend = {
     success: false,
     data: ""
   };
   let attemptingUser = {
-    password: req.body.password,
-    email: req.body.email
+    password: data.password,
+    email: data.email
   };
   if (attemptingUser.email != null && attemptingUser.email != '' &&
     attemptingUser.password != null && attemptingUser.password.length > 1) {
     let result = await mongo.findOne('users', { email: attemptingUser.email }, includeId=true);
     if (result["success"] && result["data"] != null) {
-      const user = result["data"];
+      const user = result["data"].result;
       const match = await bcrypt.compare(attemptingUser.password, user.password);
       if (match) {
-        const accessToken = await jwt.sign({ 'id': user._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.JWT_TOKEN_EXPIRATION });
+        // const accessToken = await jwt.sign({ 'id': user._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.JWT_TOKEN_EXPIRATION });
+        const accessToken = await createUserToken(user);
         resultsToSend["success"] = true;
         resultsToSend["data"] = "login success";
         resultsToSend["token"] = accessToken;
-        res.send(resultsToSend);
+        res.append('token', accessToken);
+        res.send();
       } else {
-        resultsToSend["data"] = "Invalid email or password";
-        res.send(resultsToSend);
+        res.statusMessage = "Invalid password";
+        res.status(clientReqHasProblem).send();
       }
     }
    else {
-    resultsToSend["data"] = "Invalid email or password";
-    res.send(resultsToSend);
+    res.statusMessage = "Invalid email";
+    res.status(clientReqHasProblem).send();
   }}
  
   // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
@@ -169,6 +177,8 @@ router.post("/register", async (req, res, next) => {
           };
           let resultInsertUserIndexes = await mongo.insertOne('users_indexes', userIndexes);
           if (resultInsertUserIndexes["success"] && resultInsertUserIndexes["data"] === "inserted successfully.") {
+            const accessToken = await createUserToken(findCreatedUser.data.result);
+            res.append('token', accessToken);
             res.send(resultsToSend);
           } else {
             res.statusMessage = resultInsertUserIndexes["data"];
