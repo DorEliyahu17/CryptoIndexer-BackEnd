@@ -121,9 +121,10 @@ router.post("/login", async (req, res, next) => {
         resultsToSend["success"] = true;
         resultsToSend["data"] = "login success";
         resultsToSend["token"] = accessToken;
-        res.append('token', accessToken);
+        res.append('authorization', accessToken);
         res.append('name', user.username);
-        res.send();
+        res.append('admin', user.is_admin);
+        res.status(okCode).send();
       } else {
         res.statusMessage = "Invalid password";
         res.status(clientReqHasProblem).send();
@@ -179,9 +180,10 @@ router.post("/register", async (req, res, next) => {
           let resultInsertUserIndexes = await mongo.insertOne('users_indexes', userIndexes);
           if (resultInsertUserIndexes["success"] && resultInsertUserIndexes["data"] === "inserted successfully.") {
             const accessToken = await createUserToken(findCreatedUser.data.result);
-            res.append('token', accessToken);
+            res.append('authorization', accessToken);
             res.append('name', findCreatedUser.data.result.username);
-            res.send(resultsToSend);
+            res.append('admin', findCreatedUser.data.result.is_admin);
+            res.status(okCode).send();
           } else {
             res.statusMessage = resultInsertUserIndexes["data"];
             res.status(serverErrorCode).send();
