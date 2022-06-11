@@ -116,7 +116,6 @@ router.post("/login", async (req, res, next) => {
       const user = result["data"].result;
       const match = await bcrypt.compare(attemptingUser.password, user.password);
       if (match) {
-        // const accessToken = await jwt.sign({ 'id': user._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.JWT_TOKEN_EXPIRATION });
         const accessToken = await createUserToken(user);
         resultsToSend["success"] = true;
         resultsToSend["data"] = "login success";
@@ -134,8 +133,6 @@ router.post("/login", async (req, res, next) => {
     res.statusMessage = "Invalid email";
     res.status(clientReqHasProblem).send();
   }}
- 
-  // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
 });
 
 /* POST register new user. */
@@ -234,10 +231,7 @@ router.get("/users-list", async (req, res, next) => {
 //example to pas dict from js to python
 router.post("/create-new-index", async (req, res, next) => {
   let data = JSON.parse(req.body.data);
-  console.log(data);
-
   let index_hash = costumeHash(JSON.stringify(data.symbolToPrice));
-  console.log(index_hash);
   let isIndexExist = await mongo.findAll('indexes', { index_hash: index_hash });
 
   //TODO: replace 231+232 with 234
@@ -757,44 +751,79 @@ router.get("/admins", function (req, res, next) {
 });
 
 /* GET Bugs listing. */
-router.get("/reported-bugs", function (req, res, next) {
-  mongo
-    .findAll("bugs")
-    .then(function (result) {
-      res.send(result);
-    })
-    .catch(function (err) {
-      res.send(err);
-    });
+router.get("/reported-bugs", async (req, res, next) => {
+  let dataToPass = [];
+  const bugsList = await mongo.findAll("bugs");
+  if(bugsList.success) {
+    if(bugsList.data.count) {
+      for (let bugNumber = 0; bugNumber < bugsList.data.count; bugNumber++) {
+        let userId = new ObjectID(bugsList.data.result[bugNumber].reporterId);
+        let user = await mongo.findOne('users', { _id: userId });
+        if(user.success) {
+          dataToPass.push({
+            reportedName: user.data.result.username,
+            insertDate: bugsList.data.result[bugNumber].insertDate,
+            title: bugsList.data.result[bugNumber].title,
+            description: bugsList.data.result[bugNumber].description,
+            isDone: bugsList.data.result[bugNumber].isDone,
+          });
+        } else {
+          res.send({success: false, data: 'An Error occurred, try again later'});
+        }
+      }
+      let doneBugs = await mongo.findAll("bugs", { isDone: true });
+      if(doneBugs.success || doneBugs.data.result === "No documents found!") {
+        res.send({success: true, data: {result: dataToPass, doneBugsCount: doneBugs.data.count}});
+      } else {
+        res.send(bugsList);
+      }
+    } else {
+      res.send(bugsList);
+    }
+  } else {
+    res.send(bugsList);
+  }
 });
 
 /* INSERT bug to the database. */
-router.post("/insert-bug", function (req, res, next) {
-  mongo.insertOne({
-      name: req.query.name,
-      subject: req.query.subject,
-      description: req.query.description,
-      insertDate: req.query.insertDate,
-    },
-    "bugs"
-  ).then(function (result) {
-    res.send(result);
-  }).catch(function (err) {
-    res.send(err);
+router.post("/insert-bug", async (req, res, next) => {
+  const data = JSON.parse(req.body.data);
+  const user = await decriptUserFromToken(data.reporterToken);
+  let userId = new ObjectID(user.id);
+  let result = await mongo.insertOne('bugs', {
+    title: data.title,
+    description: data.description,
+    reporterId: userId,
+    insertDate: data.insertDate,
+    isDone: false,
   });
+  if(result.success) {
+    res.status(okCode).send();
+  } else {
+    res.status(serverErrorCode).send();
+  }
 });
 
 /* DELETE bug from the database. */
-router.post("/delete-bugs", function (req, res, next) {
-  mongo.deleteArr(req.query._id, "bugs").then(function () {
-    mongo.findAll("bugs").then(function (result) {
-      res.send(result);
-    }).catch(function (err) {
-      res.send(err);
-    });
-  }).catch(function (err) {
-    res.send(err);
-  });
+router.get("/update-bug", async (req, res, next) => {
+  const data = JSON.parse(req.query.data);
+  let reportedUser = await mongo.findOne('users', {username: data.reporterName}, includeId=true);
+  if(reportedUser.success) {
+    let udpateResult = await mongo.updateOne('bugs', {
+      title: data.title,
+      description: data.description,
+      reporterId: reportedUser.data.result._id,
+      insertDate: data.insertDate,
+      isDone: data.isDone,
+    },{isDone: !data.isDone});
+    if(udpateResult.success) {
+      res.send(udpateResult);
+    } else {
+      res.send(udpateResult);
+    }
+  } else {
+    res.send(reportedUser);
+  }
 });
 
 /* GET To-DOs listing. */
