@@ -23,7 +23,6 @@
     "crypto": "^1.0.1",
     "debug": "^4.3.4",
     "jsonwebtoken": "^8.5.1",
-    "nodemon": "^2.0.15",
-    "shelljs": "^0.8.5"
+    "nodemon": "^2.0.15"
   }
 }

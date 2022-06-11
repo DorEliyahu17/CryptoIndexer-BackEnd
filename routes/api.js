@@ -1,12 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const mongo = require("../MongoDriver");
-const {
-  ObjectID
-} = require("mongodb");
+const { ObjectID } = require("mongodb");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken")
-// const shell = require("shelljs");
 const { spawn } = require("child_process");
 const authenticate = require('../utils/auth_middleware')
 const { createHash } = require('crypto');
@@ -165,8 +162,6 @@ router.post("/register", async (req, res, next) => {
         attemptingUser.password = hashPass;
         let resultInsertUser = await mongo.insertOne('users', attemptingUser);
         if (resultInsertUser["success"] && resultInsertUser["data"] === "inserted successfully.") {
-          // resultsToSend["success"] = true;
-          // resultsToSend["data"] = 'User created successfully';
           let findCreatedUser = await mongo.findOne('users', attemptingUser, includeId=true);
           let userIndexes = {
             user_id: findCreatedUser.data.result._id,
@@ -174,8 +169,6 @@ router.post("/register", async (req, res, next) => {
           };
           let resultInsertUserIndexes = await mongo.insertOne('users_indexes', userIndexes);
           if (resultInsertUserIndexes["success"] && resultInsertUserIndexes["data"] === "inserted successfully.") {
-            // resultsToSend["success"] = true;
-            // resultsToSend["data"] = 'User created successfully';
             res.send(resultsToSend);
           } else {
             res.statusMessage = resultInsertUserIndexes["data"];
@@ -197,7 +190,6 @@ router.post("/register", async (req, res, next) => {
     res.statusMessage = "Invalid username or password";
     res.status(clientReqHasProblem).send();
   }
-  // res.status((result["success"]) ? okCode : serverErrorCode).send(resultsToSend);
 });
 
 /* DELETE users from the database. */
@@ -627,13 +619,31 @@ router.get("/own-indexes", async (req, res, next) => {
     userIndexes = userIndexes.data.result.indexes;
     for (let indexNumber = 0; indexNumber < userIndexes.length; indexNumber++) {
       let indexData = await mongo.findOne('indexes', { index_hash: userIndexes[indexNumber].index_hash });
+      let countInvestingUsers = 0;
+      let canBePublic = false;
       if(indexData.success) {
-        indexesToPass.push({symbolToPrice: indexData.data.result.symbols_weight, indexName: userIndexes[indexNumber].name});
+        if(indexData.data.result.creator_username === userFromToken.username) {
+          if(!userIndexes[indexNumber].is_private) {
+            //public index
+            countInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: {index_hash: userIndexes[indexNumber].index_hash}} }, includeId=true);
+          } else {
+            //private index but can be public
+            canBePublic = true;
+          }
+        }
+        // indexesToPass.push({symbolToPrice: indexData.data.result.symbols_weight, indexName: userIndexes[indexNumber].name});
+        indexesToPass.push({
+          indexHash: indexData.data.result.index_hash,
+          indexName: userIndexes[indexNumber].name,
+          investingUsers: countInvestingUsers,
+          isPrivate: userIndexes[indexNumber].is_private,
+          canBePublic: canBePublic,
+        });
       } else {
         res.send({success: false, data: indexData.data});
       }
     }
-    res.send({success: true, data: indexesToPass})
+    res.send({success: true, data: {result: indexesToPass, weeklyGains: []}})
   } else {
     res.send({success: false, data: userIndexes.data});
   }
