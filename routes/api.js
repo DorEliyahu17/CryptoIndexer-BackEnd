@@ -122,6 +122,7 @@ router.post("/login", async (req, res, next) => {
         resultsToSend["data"] = "login success";
         resultsToSend["token"] = accessToken;
         res.append('token', accessToken);
+        res.append('name', user.username);
         res.send();
       } else {
         res.statusMessage = "Invalid password";
@@ -179,6 +180,7 @@ router.post("/register", async (req, res, next) => {
           if (resultInsertUserIndexes["success"] && resultInsertUserIndexes["data"] === "inserted successfully.") {
             const accessToken = await createUserToken(findCreatedUser.data.result);
             res.append('token', accessToken);
+            res.append('name', findCreatedUser.data.result.username);
             res.send(resultsToSend);
           } else {
             res.statusMessage = resultInsertUserIndexes["data"];
