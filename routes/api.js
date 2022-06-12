@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken")
 const { spawn } = require("child_process");
 const authenticate = require('../utils/auth_middleware')
 const { createHash } = require('crypto');
+const { ok } = require("assert");
 
 const okCode = 200;
 const clientReqHasProblem = 400;
@@ -290,7 +291,7 @@ router.post("/create-new-index", async (req, res, next) => {
         userFromUsersIndexes.data.result.indexes.push({
           index_hash: index_hash,
           name: data.indexName,
-          is_private: true
+          is_private: false
         });
         let updateUserIndexes = await mongo.updateOne('users_indexes', { user_id: userFromToken }, {indexes: userFromUsersIndexes.data.result.indexes}, includeId=true);
         if (updateUserIndexes.success && updateUserIndexes.data.modifiedCount === 1) {
@@ -625,6 +626,15 @@ router.get("/own-indexes", async (req, res, next) => {
       if(indexData.success) {
         if(indexData.data.result.creator_username === user.data.result.username) {
           if(!userIndexes[indexNumber].is_private) {
+            /****************************************************
+             * 
+             * 
+             * 
+             * Change after crewating transactions table
+             * 
+             * 
+             * 
+             ****************************************************/
             //public index
             countInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: {index_hash: userIndexes[indexNumber].index_hash}} }, includeId=true);
           } else {
@@ -649,82 +659,100 @@ router.get("/own-indexes", async (req, res, next) => {
   }
 });
 
-router.post("/buy-or-sell-index", async function (req, res, next) {
-  let resultsToSend = {
-    success: false,
-    data: ""
-  };
-  let isExistResult = await mongo.findOne('transactions', 
-    {
-      userToken: req.body.userToken,
-      index_hash: req.body.index_hash,
-    });
-  if (isExistResult.success && isExistResult.count > 0) {
-    let tempFunding = isExistResult.result.funding;
-    tempFunding.push(req.body.transactionData);
-    let updateResult = await mongo.updateOne('transactions', {
-      userToken: req.body.userToken,
-      indexName: req.body.indexName,
-      fundigs: tempFunding,
-    });
+const sleep = (milliseconds) => {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
 
-    let sumOfFunding = updateResult.fundigs.map(f => sumOfFunding +=f);
-    if(sumOfFunding == 0)
-    {
-      let userIndexes = await mongo.findOne('users_indexes', {name: data});
-      userIndexes.indexes = userIndexes.indexes.filter(i => i.hash == req.body.index_hash)
-        let result = await mongo.updateOne('users_indexes', {
-          userName: req.body.userName,
-          indexes: userIndexes.indexes,
+router.post("/buy-or-sell-index", async (req, res, next) => {
+  const data = JSON.parse(req.body.data);
+  let userTokenTemp = await decriptUserFromToken(data.userToken);
+  const userFromToken = new ObjectID(userTokenTemp);
+  let indexFromDB = await mongo.findOne('users_indexes', {
+    user_id: data.isOwnIndex ? userFromToken : '',
+    indexes: {$elemMatch: {name: data.indexName}}
+  });
+  if(indexFromDB.success) {
+    //found the index
+    sleep(1000).then(async () => {
+      let indexFromUser = indexFromDB.data.result.indexes.find((indexObject) => indexObject.name === data.indexName);
+      let isExistTransactionResult = await mongo.findOne('transactions', {
+          user_id: userFromToken,
+          index_hash: indexFromUser.index_hash,
         });
-    }
+      if(isExistTransactionResult.success && isExistTransactionResult.data.count > 0) {
+        //transaction exist
+        let tempFunding = isExistTransactionResult.data.result.funding;
+        tempFunding.push(data.transactionData);
+        let updateResult = await mongo.updateOne('transactions', {
+          user_id: req.body.userToken,
+          index_hash: req.body.indexName,
+        }, { funding: tempFunding });
+        if(updateResult.success && updateResult.data.modifiedCount === 1) {
+          let sumOfFunding = 0;
+          tempFunding.map(fundingObject => sumOfFunding += fundingObject.amount);
+          if(sumOfFunding == 0) {
+            let tempUserIndexes = indexFromDB.indexes.map((indexObject) => {
+              let tempIndex = indexObject;
+              if(indexObject.index_hash === indexFromUser.index_hash) {
+                tempIndex.funding = { amount: sumOfFunding, date: data.transactionData.date}
+              }
+              return tempIndex;
+            });
+            let result = await mongo.updateOne('users_indexes', indexFromDB, { indexes: tempUserIndexes });
+            if(result.success && result.data.modifiedCount === 1) {
+              res.status(okCode).send();
+            } else {
+              res.statusMessage = insertResult.data;
+              res.status(serverErrorCode).send();
+            }
+          }
+        } else {
+          res.statusMessage = insertResult.data;
+          res.status(serverErrorCode).send();
+        }
+      } else {
+        //transaction soesn't exist
+        let insertResult = await mongo.insertOne('transactions', {
+          user_id: userFromToken,
+          index_hash: indexFromUser.index_hash,
+          funding: [data.transactionData],
+        });
+        if (insertResult.success && insertResult.data === "inserted successfully.") {
+          // resultsToSend["success"] = true;
+          // resultsToSend["data"] = 'transaction created successfully';
+          res.status(okCode).send();
+        } else {
+          res.statusMessage = insertResult.data;
+          res.status(serverErrorCode).send();
+        }
 
-    /*************** need to fix after testing returned data object from update one function ***************/
-    if (insertResult["success"] && insertResult["data"] === "inserted successfully.") {
-      resultsToSend["success"] = true;
-      resultsToSend["data"] = 'transaction updated successfully';
-    } else {
-      resultsToSend["data"] = insertResult["data"];
-    }
-    res.send(updateResult);
 
 
+
+        /******************************* todo */
+        let isUserExistInIserIndexes = await mongo.findOne('users_indexes', {
+          username: req.body.username
+        });
+        if (isUserExistInIserIndexes.success && isUserExistInIserIndexes.count > 0) {
+          let tempIndexes = isUserExistInIserIndexes.result.indexes;
+          tempIndexes.push(req.body.transactionData);
+          let updateResult = await mongo.updateOne('users_indexes', {
+            userName: req.query.userName,
+            indexes: tempIndexes,
+          });
+        } else {
+          let insertUser_index = await mongo.insertOne('users_indexes', {
+            userName: req.body.userName,
+            indexes: [req.body.transactionData],
+          });
+        }
+      }
+    });
   } else {
-    let insertResult = await mongo.insertOne('transactions', {
-      userToken: req.body.userToken,
-      indexName: req.body.indexName,
-      funding: [req.body.transactionData],
-    });
-    if (insertResult["success"] && insertResult["data"] === "inserted successfully.") {
-      resultsToSend["success"] = true;
-      resultsToSend["data"] = 'transaction created successfully';
-    } else {
-      resultsToSend["data"] = insertResult["data"];
-    }
-
-
-    let isUserExistInIserIndexes = await mongo.findOne('users_indexes', 
-    {
-      username: req.body.username
-    });
-  if (isUserExistInIserIndexes.success && isUserExistInIserIndexes.count > 0) {
-    let tempIndexes = isUserExistInIserIndexes.result.indexes;
-    tempIndexes.push(req.body.transactionData);
-    let updateResult = await mongo.updateOne('users_indexes', {
-      userName: req.query.userName,
-      indexes: tempIndexes,
-    });
+    //index have not found
+    res.statusMessage = "couldn't find the index, try to contact us for support.";
+    res.status(clientReqHasProblem).send();
   }
-  else{
-    let insertUser_index = await mongo.insertOne('users_indexes', {
-      userName: req.body.userName,
-      indexes: [req.body.transactionData],
-    });
-  }
-
-  }
-
-  
 });
 
 

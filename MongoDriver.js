@@ -33,8 +33,11 @@ exportMongo.insertOne = async (collection, document, isCommunity = false) => {
   } catch (e) {
     resultsToSend["data"] = e.toString();
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
@@ -57,8 +60,11 @@ exportMongo.insertArr = async (collection, documents, isCommunity = false) => {
   } catch (e) {
     resultsToSend["data"] = e.toString();
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
@@ -83,8 +89,11 @@ exportMongo.deleteOne = async (collection, document, isCommunity = false, isConn
   } catch (e) {
     resultsToSend["data"] = e.toString();
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
@@ -106,8 +115,11 @@ exportMongo.deleteArr = async (collection, documentsArr, isCommunity = false) =>
   } catch (e) {
     resultsToSend["data"] = e.toString();
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
@@ -136,8 +148,11 @@ exportMongo.findOne = async (collection, objectToFind, options = {}, isCommunity
   } catch (e) {
     resultsToSend["data"] = e.toString();
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
@@ -164,8 +179,11 @@ exportMongo.findAll = async (collection, objectToFind = {}, options = {}, sort =
   } catch (e) {
     resultsToSend["data"] = { result: e.toString() };
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
@@ -188,8 +206,11 @@ exportMongo.updateOne = async (collection, objectToFind, objectToUpdate, options
   } catch (e) {
     resultsToSend["data"] = e.toString();
   } finally {
-    await client.close();
-    return resultsToSend;
+    try {
+      await client.close();
+    } finally {
+      return resultsToSend;
+    }
   }
 };
 
