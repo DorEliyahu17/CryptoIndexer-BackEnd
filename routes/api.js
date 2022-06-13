@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const mongo = require("../MongoDriver");
-const { ObjectID } = require("mongodb");
+const { ObjectID, ObjectId } = require("mongodb");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken")
 const { spawn } = require("child_process");
@@ -11,6 +11,7 @@ const { createHash } = require('crypto');
 const okCode = 200;
 const clientReqHasProblem = 400;
 const serverErrorCode = 500;
+const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3';
 
 function costumeHash(string) {
   return createHash('sha256').update(string).digest('hex');
@@ -248,7 +249,6 @@ router.post("/create-new-index", async (req, res, next) => {
     if(userFromUsersIndexes.success) {
       if (!isUserIndexNameExist.success) {
         if (!isUserIndexExist.success) {
-          let curDate = 
           //user found and index is not created and index name is not created by him
           userFromUsersIndexes.data.result.indexes.push({
             index_hash: index_hash,
@@ -381,7 +381,7 @@ router.get("/backtest-new-index", (req, res, next) => {
     initialCash = 1000;
   }
   if (data) {
-    let python = spawn('python', ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
+    let python = spawn(pythonCommand, ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
     let backtestResult = null;
     python.stdout.on("data", (data) => { 
      backtestResult = JSON.parse(data); 
@@ -397,21 +397,19 @@ router.get("/backtest-new-index", (req, res, next) => {
 
 router.get("/backtest-exist-index", async (req, res, next) => {
   //TODO - get the symbols and weights from the mongo then backtest with the cash from the front
-  // let data = JSON.parse(req.query.data);
+  let indexHash = req.query.data;
   let initialCash = req.query.initialCash;
   if(!!!initialCash) {
     initialCash = 1000;
   }
-  // if (data) {
-    let index_hash = 'b8f4552c4fa878f05c05b3f923d3dd8a5e8c3a5b68c887bc94cc97f790a13341';
-    // let indexData = await mongo.findOne('indexes', { index_hash: data.index_hash });
-    let indexData = await mongo.findOne('indexes', { index_hash: index_hash });
+  if (indexHash) {
+    let indexData = await mongo.findOne('indexes', { index_hash: indexHash });
     if(indexData.success) {
       let symbols_weight = []
       for (let i = 0; i < indexData.data.result.symbols_weight.length; i++) {
         symbols_weight.push({symbol: indexData.data.result.symbols_weight[i].symbol, weight: parseFloat(indexData.data.result.symbols_weight[i].weight)})
       }
-      let python = spawn('python', ['../CryptoIndexer-Server/BacktestExistingCustomIndex.py', JSON.stringify(symbols_weight), initialCash]);
+      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/BacktestExistingCustomIndex.py', JSON.stringify(symbols_weight), initialCash]);
       let backtestResult = null;
       python.stdout.on("data", (data) => { 
        backtestResult = JSON.parse(data); 
@@ -423,14 +421,14 @@ router.get("/backtest-exist-index", async (req, res, next) => {
     } else {
       res.send({success: false, data: indexData.data});
     }
-  // } else {
-  //   res.send({success: false, data: 'Error accourd'});
-  // }
+  } else {
+    res.send({success: false, data: 'Error accourd'});
+  }
 });
 
 /***************** DataBase Utills API *****************/
 router.get("/supported-symbols-list", async (req, res, next) => {  
-  let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
+  let python = spawn(pythonCommand, ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
   let result = {"success": false, "data": 'Python Error'};
   
   python.stderr.setEncoding('utf-8');
@@ -448,11 +446,10 @@ router.get("/supported-symbols-list", async (req, res, next) => {
     console.log('Python finished with code ' + code);
     res.send(result);
   });
-  // res.send(result)
 });
 
 router.get("/home-page-supported-symbols-list", async (req, res, next) => {  
-  let python = spawn('python', ['../CryptoIndexer-Server/GetAllSymbolsPrices.py']);
+  let python = spawn(pythonCommand, ['../CryptoIndexer-Server/GetAllSymbolsPrices.py']);
   let result = {"success": false, "data": 'Python Error'};
   
   python.stderr.setEncoding('utf-8');
@@ -473,239 +470,62 @@ router.get("/home-page-supported-symbols-list", async (req, res, next) => {
 });
 
 router.get("/all-indexes-list", async (req, res, next) => {
-// router.get("/content", async (req, res, next) => {
-  //let result = await mongo.findAll('symbols');
-  // res.send(result)
-
-  const tiers = [
-    {
-      title: 'yotam',
-      price: '0',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-    },
-    {
-      title: '1 st',
-      subheader: 'Most popular',
-      price: '15+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-  
-    },
-    {
-      title: '3 rd',
-      price: '10+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-  
-    },
-    {
-      title: 'Nasdaq Crypto Index',
-      price: '23+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'Crypto10',
-      price: '12+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'Bitwise 10',
-      price: '30',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'CRYPTO20',
-      price: '22+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'SPBTC',
-      price: '2.5+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'DeFi Pulse Index',
-      price: '11+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'SPCMC',
-      price: '7+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'All Crypto Index',
-      price: '8+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'Major Crypto Index',
-      price: '30+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-  ];
-  res.send(tiers)
+  let data = JSON.parse(req.query.data);
+  let indexesList = [];
+  let symbolWeightForWeeklyGain = []
+  let isValid = true;
+  let indexesResult = await mongo.findAll('indexes', { creator_username: { $ne: data.userName } });
+  if(indexesResult.success) {
+    for(let i=0; i < indexesResult.data.count && isValid; i++){
+      let creatorUser = await mongo.findOne('users', { username: indexesResult.data.result[i].creator_username }, includeId=true);
+      if(creatorUser.success) {
+        let creatorId = new ObjectId(creatorUser.data.result._id);
+        let creatorUserIndex = await mongo.findOne('users_indexes', { user_id: creatorId });
+        if(creatorUserIndex.success) {
+          let createdIndexName = creatorUserIndex.data.result.indexes.filter(indexObject => indexObject.index_hash === indexesResult.data.result[i].index_hash);
+          let symbols_weight = []
+          for (let j = 0; j < indexesResult.data.result[i].symbols_weight.length; j++) {
+            symbols_weight.push({symbol: indexesResult.data.result[i].symbols_weight[j].symbol, weight: parseFloat(indexesResult.data.result[i].symbols_weight[j].weight)})
+          }
+          symbolWeightForWeeklyGain.push(symbols_weight);
+          let getInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: { index_hash: indexesResult.data.result[i].index_hash }} });
+          if(getInvestingUsers.success) {
+            let countInvestingUsers = getInvestingUsers.data.count;
+            indexesList.push({
+              indexName: createdIndexName[0].name,
+              creatorName: indexesResult.data.result[i].creator_username,
+              creatorId: creatorUser.data.result._id,
+              investingCount: countInvestingUsers,
+              indexHash: indexesResult.data.result[i].index_hash,
+            });  
+          } else {
+            isValid = false;
+          }
+        } else {
+          isValid = false;
+        }
+      } else {
+        isValid = false;
+      }
+    }
+    if(isValid) {
+      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(symbolWeightForWeeklyGain)]);
+      let weeklyGains = null;
+      python.stdout.on("data", (data) => { 
+        weeklyGains = JSON.parse(data); 
+      });
+      python.on("close", (code) => {
+        console.log('Python finished with code ' + code);
+        indexesList.map((indexObject, i) => indexObject.weeklyGain = weeklyGains.data[i]);
+        res.send({success: true, data: { result: indexesList }})
+      });
+    } else {
+      res.send({success: false, data: 'An Error occurred, try again later'});
+    }
+  } else {
+    res.send(result)
+  }
 });
-
-
-
-router.get("/content", async (req, res, next) => {
-  //let result = await mongo.findAll('symbols');
-  // res.send(result)
-
-  const tiers = [
-    {
-      title: 'yotam',
-      price: '0',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-    },
-    {
-      title: '1 st',
-      subheader: 'Most popular',
-      price: '15+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-  
-    },
-    {
-      title: '3 rd',
-      price: '10+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-  
-    },
-    {
-      title: 'Nasdaq Crypto Index',
-      price: '23+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'Crypto10',
-      price: '12+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'Bitwise 10',
-      price: '30',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'CRYPTO20',
-      price: '22+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'SPBTC',
-      price: '2.5+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'DeFi Pulse Index',
-      price: '11+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'SPCMC',
-      price: '7+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'All Crypto Index',
-      price: '8+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-    {
-      title: 'Major Crypto Index',
-      price: '30+',
-      description: [
-        'This is an example of a description written by the author of the index',
-      ],
-      buttonText: 'See more details',
-      buttonVariant: 'contained',
-    },
-  ];
-  res.send(tiers)
-});
-
-
-
-
 
 /***************** Home Page API *****************/
 
@@ -786,7 +606,7 @@ router.get("/own-indexes", async (req, res, next) => {
       }
     }
 
-    let python = spawn('python', ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
+    let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
     let weeklyGains = null;
     python.stdout.on("data", (data) => { 
       weeklyGains = JSON.parse(data); 
@@ -807,9 +627,9 @@ const sleep = (milliseconds) => {
 router.post("/buy-or-sell-index", async (req, res, next) => {
   const data = JSON.parse(req.body.data);
   let userTokenTemp = await decriptUserFromToken(data.userToken);
-  const userFromToken = new ObjectID(userTokenTemp);
+  const userFromToken = new ObjectID(data.isOwnIndex ? userTokenTemp: data.creatorId);
   let indexFromDB = await mongo.findOne('users_indexes', {
-    user_id: data.isOwnIndex ? userFromToken : '',
+    user_id: userFromToken,
     indexes: {$elemMatch: {name: data.indexName}}
   });
   if(indexFromDB.success) {
@@ -896,10 +716,10 @@ router.get("/admins", function (req, res, next) {
 router.get("/reported-bugs", async (req, res, next) => {
   let dataToPass = [];
   const bugsList = await mongo.findAll("bugs");
-  let valid = true;
+  let isValid = true;
   if(bugsList.success) {
     if(bugsList.data.count) {
-      for (let bugNumber = 0; bugNumber < bugsList.data.count; bugNumber++) {
+      for (let bugNumber = 0; bugNumber < bugsList.data.count && isValid; bugNumber++) {
         let userId = new ObjectID(bugsList.data.result[bugNumber].reporterId);
         let user = await mongo.findOne('users', { _id: userId });
         if(user.success) {
@@ -911,10 +731,10 @@ router.get("/reported-bugs", async (req, res, next) => {
             isDone: bugsList.data.result[bugNumber].isDone,
           });
         } else {
-          valid = false;
+          isValid = false;
         }
       }
-      if(valid) {
+      if(isValid) {
         let doneBugs = await mongo.findAll("bugs", { isDone: true });
         if(doneBugs.success || doneBugs.data.result === "No documents found!") {
           res.send({success: true, data: {result: dataToPass, doneBugsCount: doneBugs.data.count}});
