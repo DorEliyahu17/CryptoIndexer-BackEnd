@@ -14,7 +14,7 @@ const {
 //   symbols: "symbols",
 // };
 
-const client = new MongoClient(process.env.NODE_ENV === "development" ? process.env.DATABASE_URL : PROD_DATABASE_URL);
+const client = new MongoClient(process.env.NODE_ENV === "development" ? process.env.DATABASE_URL : process.env.PROD_DATABASE_URL);
 const mainDB = 'CryptoIndexer-SystemDB';
 const communityDB = 'CryptoIndexer-CommunityDB';
 
