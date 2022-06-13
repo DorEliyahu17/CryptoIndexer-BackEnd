@@ -461,6 +461,123 @@ router.get("/home-page-supported-symbols-list", async (req, res, next) => {
   });
 });
 
+router.get("/all-indexes-list", async (req, res, next) => {
+// router.get("/content", async (req, res, next) => {
+  //let result = await mongo.findAll('symbols');
+  // res.send(result)
+
+  const tiers = [
+    {
+      title: 'yotam',
+      price: '0',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+    },
+    {
+      title: '1 st',
+      subheader: 'Most popular',
+      price: '15+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+  
+    },
+    {
+      title: '3 rd',
+      price: '10+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+  
+    },
+    {
+      title: 'Nasdaq Crypto Index',
+      price: '23+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'Crypto10',
+      price: '12+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'Bitwise 10',
+      price: '30',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'CRYPTO20',
+      price: '22+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'SPBTC',
+      price: '2.5+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'DeFi Pulse Index',
+      price: '11+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'SPCMC',
+      price: '7+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'All Crypto Index',
+      price: '8+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+    {
+      title: 'Major Crypto Index',
+      price: '30+',
+      description: [
+        'This is an example of a description written by the author of the index',
+      ],
+      buttonText: 'See more details',
+      buttonVariant: 'contained',
+    },
+  ];
+  res.send(tiers)
+});
+
+
+
 router.get("/content", async (req, res, next) => {
   //let result = await mongo.findAll('symbols');
   // res.send(result)
@@ -658,27 +775,15 @@ router.get("/own-indexes", async (req, res, next) => {
       }
     }
 
-
-    /**************************
-     * 
-     * 
-     * 
-     * change me
-     * 
-     * 
-     * 
-     */
-    res.send({success: true, data: {result: indexesToPass, weeklyGains: weeklyGains.data}})
-
-    // let python = spawn('python', ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
-    // let weeklyGains = null;
-    // python.stdout.on("data", (data) => { 
-    //   weeklyGains = JSON.parse(data); 
-    // });
-    // python.on("close", (code) => {
-    //   console.log('Python finished with code ' + code);
-    //   res.send({success: true, data: {result: indexesToPass, weeklyGains: weeklyGains.data}})
-    // });
+    let python = spawn('python', ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
+    let weeklyGains = null;
+    python.stdout.on("data", (data) => { 
+      weeklyGains = JSON.parse(data); 
+    });
+    python.on("close", (code) => {
+      console.log('Python finished with code ' + code);
+      res.send({success: true, data: {result: indexesToPass, weeklyGains: weeklyGains.data}})
+    });
   } else {
     res.send({success: false, data: userIndexes.data});
   }
@@ -780,6 +885,7 @@ router.get("/admins", function (req, res, next) {
 router.get("/reported-bugs", async (req, res, next) => {
   let dataToPass = [];
   const bugsList = await mongo.findAll("bugs");
+  let valid = true;
   if(bugsList.success) {
     if(bugsList.data.count) {
       for (let bugNumber = 0; bugNumber < bugsList.data.count; bugNumber++) {
@@ -794,14 +900,18 @@ router.get("/reported-bugs", async (req, res, next) => {
             isDone: bugsList.data.result[bugNumber].isDone,
           });
         } else {
-          res.send({success: false, data: 'An Error occurred, try again later'});
+          valid = false;
         }
       }
-      let doneBugs = await mongo.findAll("bugs", { isDone: true });
-      if(doneBugs.success || doneBugs.data.result === "No documents found!") {
-        res.send({success: true, data: {result: dataToPass, doneBugsCount: doneBugs.data.count}});
+      if(valid) {
+        let doneBugs = await mongo.findAll("bugs", { isDone: true });
+        if(doneBugs.success || doneBugs.data.result === "No documents found!") {
+          res.send({success: true, data: {result: dataToPass, doneBugsCount: doneBugs.data.count}});
+        } else {
+          res.send(bugsList);
+        }
       } else {
-        res.send(bugsList);
+        res.send({success: false, data: 'An Error occurred, try again later'});
       }
     } else {
       res.send(bugsList);
