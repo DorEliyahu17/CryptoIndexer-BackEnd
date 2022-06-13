@@ -11,7 +11,7 @@ const { createHash } = require('crypto');
 const okCode = 200;
 const clientReqHasProblem = 400;
 const serverErrorCode = 500;
-const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3.10';
+const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3';
 
 function costumeHash(string) {
   return createHash('sha256').update(string).digest('hex');
@@ -529,16 +529,62 @@ router.get("/all-indexes-list", async (req, res, next) => {
 
 /***************** Home Page API *****************/
 
-router.get("/popular-indexes-list", async (req, res, next) => {
-  //test findAll
-  // let result = await mongo.findAll('users');
-
-  //test findAll with object
-  // let result = await mongo.findAll('users', {
-  //   name: 'aa'
-  // });
-
-  res.send(result);
+router.get("/all-invested-indexes-list", async (req, res, next) => {
+  let data = JSON.parse(req.query.data);
+  let indexesList = [];
+  let symbolWeightForWeeklyGain = []
+  let isValid = true;
+  let indexesResult = await mongo.findAll('transactions', { user_id: data.userName });
+  if(indexesResult.success) {
+    for(let i=0; i < indexesResult.data.count && isValid; i++){
+      let creatorUser = await mongo.findOne('users', { username: indexesResult.data.result[i].creator_username }, includeId=true);
+      if(creatorUser.success) {
+        let creatorId = new ObjectId(creatorUser.data.result._id);
+        let creatorUserIndex = await mongo.findOne('users_indexes', { user_id: creatorId });
+        if(creatorUserIndex.success) {
+          let createdIndexName = creatorUserIndex.data.result.indexes.filter(indexObject => indexObject.index_hash === indexesResult.data.result[i].index_hash);
+          let symbols_weight = []
+          for (let j = 0; j < indexesResult.data.result[i].symbols_weight.length; j++) {
+            symbols_weight.push({symbol: indexesResult.data.result[i].symbols_weight[j].symbol, weight: parseFloat(indexesResult.data.result[i].symbols_weight[j].weight)})
+          }
+          symbolWeightForWeeklyGain.push(symbols_weight);
+          let getInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: { index_hash: indexesResult.data.result[i].index_hash }} });
+          if(getInvestingUsers.success) {
+            let countInvestingUsers = getInvestingUsers.data.count;
+            indexesList.push({
+              indexName: createdIndexName[0].name,
+              creatorName: indexesResult.data.result[i].creator_username,
+              creatorId: creatorUser.data.result._id,
+              investingCount: countInvestingUsers,
+              indexHash: indexesResult.data.result[i].index_hash,
+            });  
+          } else {
+            isValid = false;
+          }
+        } else {
+          isValid = false;
+        }
+      } else {
+        isValid = false;
+      }
+    }
+    if(isValid) {
+      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(symbolWeightForWeeklyGain)]);
+      let weeklyGains = null;
+      python.stdout.on("data", (data) => { 
+        weeklyGains = JSON.parse(data); 
+      });
+      python.on("close", (code) => {
+        console.log('Python finished with code ' + code);
+        indexesList.map((indexObject, i) => indexObject.weeklyGain = weeklyGains.data[i]);
+        res.send({success: true, data: { result: indexesList }})
+      });
+    } else {
+      res.send({success: false, data: 'An Error occurred, try again later'});
+    }
+  } else {
+    res.send(result)
+  }
 })
 
 router.get("/most-successful-users-list", async (req, res, next) => {
@@ -567,9 +613,10 @@ router.get("/own-indexes", async (req, res, next) => {
   let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken });
   let user = await mongo.findOne('users', { _id: userFromToken });
   let indexesList = [];
+  let isValid = true;
   if(userIndexes.success && user.success) {
     userIndexes = userIndexes.data.result.indexes;
-    for (let indexNumber = 0; indexNumber < userIndexes.length; indexNumber++) {
+    for (let indexNumber = 0; indexNumber < userIndexes.length && isValid; indexNumber++) {
       let indexData = await mongo.findOne('indexes', { index_hash: userIndexes[indexNumber].index_hash });
       let countInvestingUsers = 0;
       let canBePublic = false;
@@ -592,29 +639,36 @@ router.get("/own-indexes", async (req, res, next) => {
             //private index but can be public
             canBePublic = true;
           }
+        } else {
+          isValid = false;
         }
-        indexesToPass.push({
-          indexHash: indexData.data.result.index_hash,
-          indexName: userIndexes[indexNumber].name,
-          investingUsers: countInvestingUsers,
-          isPrivate: userIndexes[indexNumber].is_private,
-          canBePublic: canBePublic,
-          investedAmount: investedAmount,
-        });
+        if(isValid) {
+          indexesToPass.push({
+            indexHash: indexData.data.result.index_hash,
+            indexName: userIndexes[indexNumber].name,
+            investingUsers: countInvestingUsers,
+            isPrivate: userIndexes[indexNumber].is_private,
+            canBePublic: canBePublic,
+            investedAmount: investedAmount,
+          });
+        }
       } else {
-        res.send({success: false, data: indexData.data});
+        isValid = false;
       }
     }
-
-    let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
-    let weeklyGains = null;
-    python.stdout.on("data", (data) => { 
-      weeklyGains = JSON.parse(data); 
-    });
-    python.on("close", (code) => {
-      console.log('Python finished with code ' + code);
-      res.send({success: true, data: {result: indexesToPass, weeklyGains: weeklyGains.data}})
-    });
+    if(isValid) {
+      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
+      let weeklyGains = null;
+      python.stdout.on("data", (data) => { 
+        weeklyGains = JSON.parse(data); 
+      });
+      python.on("close", (code) => {
+        console.log('Python finished with code ' + code);
+        res.send({success: true, data: {result: indexesToPass, weeklyGains: weeklyGains.data}})
+      });
+    } else {
+      res.send({success: false, data: indexData.data});
+    }
   } else {
     res.send({success: false, data: userIndexes.data});
   }
