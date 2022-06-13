@@ -27,6 +27,7 @@ build/Release
 node_modules
 package-lock.json
 .vscode
+.env
 
 # Debug log from npm
 npm-debug.log
