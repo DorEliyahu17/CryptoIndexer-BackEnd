@@ -11,7 +11,7 @@ const { createHash } = require('crypto');
 const okCode = 200;
 const clientReqHasProblem = 400;
 const serverErrorCode = 500;
-const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3';
+const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3.10';
 
 function costumeHash(string) {
   return createHash('sha256').update(string).digest('hex');
