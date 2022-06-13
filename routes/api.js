@@ -395,26 +395,37 @@ router.get("/backtest-new-index", (req, res, next) => {
   }
 });
 
-router.get("/backtest-exist-index", (req, res, next) => {
+router.get("/backtest-exist-index", async (req, res, next) => {
   //TODO - get the symbols and weights from the mongo then backtest with the cash from the front
-  let data = JSON.parse(req.query.data);
+  // let data = JSON.parse(req.query.data);
   let initialCash = req.query.initialCash;
   if(!!!initialCash) {
     initialCash = 1000;
   }
-  if (data) {
-    let python = spawn('python', ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
-    let backtestResult = null;
-    python.stdout.on("data", (data) => { 
-     backtestResult = JSON.parse(data); 
-    });
-    python.on("close", (code) => {
-      console.log('Python finished with code ' + code);
-      res.send(backtestResult);
-    });
-  } else {
-    res.send({ "success": False, "data": '' })
-  }
+  // if (data) {
+    let index_hash = 'b8f4552c4fa878f05c05b3f923d3dd8a5e8c3a5b68c887bc94cc97f790a13341';
+    // let indexData = await mongo.findOne('indexes', { index_hash: data.index_hash });
+    let indexData = await mongo.findOne('indexes', { index_hash: index_hash });
+    if(indexData.success) {
+      let symbols_weight = []
+      for (let i = 0; i < indexData.data.result.symbols_weight.length; i++) {
+        symbols_weight.push({symbol: indexData.data.result.symbols_weight[i].symbol, weight: parseFloat(indexData.data.result.symbols_weight[i].weight)})
+      }
+      let python = spawn('python', ['../CryptoIndexer-Server/BacktestExistingCustomIndex.py', JSON.stringify(symbols_weight), initialCash]);
+      let backtestResult = null;
+      python.stdout.on("data", (data) => { 
+       backtestResult = JSON.parse(data); 
+      });
+      python.on("close", (code) => {
+        console.log('Python finished with code ' + code);
+        res.send(backtestResult);
+      });
+    } else {
+      res.send({success: false, data: indexData.data});
+    }
+  // } else {
+  //   res.send({success: false, data: 'Error accourd'});
+  // }
 });
 
 /***************** DataBase Utills API *****************/
