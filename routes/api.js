@@ -530,60 +530,70 @@ router.get("/all-indexes-list", async (req, res, next) => {
 /***************** Home Page API *****************/
 
 router.get("/all-invested-indexes-list", async (req, res, next) => {
-  let data = JSON.parse(req.query.data);
+  let data = req.query.data;
+  let userTokenTemp = await decriptUserFromToken(data);
+  const userFromToken = new ObjectID(userTokenTemp.id);
+  let indexesToPass = [];
+  let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken }, includeId=true);
+  let user = await mongo.findOne('users', { _id: userFromToken });
   let indexesList = [];
-  let symbolWeightForWeeklyGain = []
   let isValid = true;
-  let indexesResult = await mongo.findAll('transactions', { user_id: data.userName });
-  if(indexesResult.success) {
-    for(let i=0; i < indexesResult.data.count && isValid; i++){
-      let creatorUser = await mongo.findOne('users', { username: indexesResult.data.result[i].creator_username }, includeId=true);
-      if(creatorUser.success) {
-        let creatorId = new ObjectId(creatorUser.data.result._id);
-        let creatorUserIndex = await mongo.findOne('users_indexes', { user_id: creatorId });
-        if(creatorUserIndex.success) {
-          let createdIndexName = creatorUserIndex.data.result.indexes.filter(indexObject => indexObject.index_hash === indexesResult.data.result[i].index_hash);
-          let symbols_weight = []
-          for (let j = 0; j < indexesResult.data.result[i].symbols_weight.length; j++) {
-            symbols_weight.push({symbol: indexesResult.data.result[i].symbols_weight[j].symbol, weight: parseFloat(indexesResult.data.result[i].symbols_weight[j].weight)})
-          }
-          symbolWeightForWeeklyGain.push(symbols_weight);
-          let getInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: { index_hash: indexesResult.data.result[i].index_hash }} });
+  if(userIndexes.success && user.success) {
+    userIndexes = userIndexes.data.result.indexes;
+    for (let indexNumber = 0; indexNumber < userIndexes.length && isValid; indexNumber++) {
+      let indexData = await mongo.findOne('indexes', { index_hash: userIndexes[indexNumber].index_hash });
+      let countInvestingUsers = 0;
+      let canBePublic = false;
+      let investedAmount = 0;
+      if(indexData.success) {
+        let symbols_weight = [];
+        let creatorName = user.data.result.username;
+        for (let i = 0; i < indexData.data.result.symbols_weight.length; i++) {
+          symbols_weight.push({symbol: indexData.data.result.symbols_weight[i].symbol, weight: parseFloat(indexData.data.result.symbols_weight[i].weight)})
+        }
+        indexesList.push(symbols_weight);
+        if(indexData.data.result.creator_username !== creatorName) {
+          creatorName=indexData.data.result.creator_username
+        }
+        if(!userIndexes[indexNumber].is_private) {
+          //public index
+          getInvestingUsers = await mongo.findAll('users_indexes', { indexes: {$elemMatch: {index_hash: userIndexes[indexNumber].index_hash}} }, includeId=true);
           if(getInvestingUsers.success) {
-            let countInvestingUsers = getInvestingUsers.data.count;
-            indexesList.push({
-              indexName: createdIndexName[0].name,
-              creatorName: indexesResult.data.result[i].creator_username,
-              creatorId: creatorUser.data.result._id,
-              investingCount: countInvestingUsers,
-              indexHash: indexesResult.data.result[i].index_hash,
-            });  
-          } else {
-            isValid = false;
+            countInvestingUsers = getInvestingUsers.data.count;
+            investedAmount = parseInt(getInvestingUsers.data.result[0].indexes[0].funding.amount);
           }
         } else {
-          isValid = false;
+          //private index but can be public
+          canBePublic = true;
         }
+        indexesToPass.push({
+          indexHash: indexData.data.result.index_hash,
+          indexName: userIndexes[indexNumber].name,
+          investingUsers: countInvestingUsers,
+          isPrivate: userIndexes[indexNumber].is_private,
+          canBePublic: canBePublic,
+          investedAmount: investedAmount,
+          creatorName: creatorName,
+        });
       } else {
         isValid = false;
       }
     }
     if(isValid) {
-      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(symbolWeightForWeeklyGain)]);
+      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
       let weeklyGains = null;
       python.stdout.on("data", (data) => { 
         weeklyGains = JSON.parse(data); 
       });
       python.on("close", (code) => {
         console.log('Python finished with code ' + code);
-        indexesList.map((indexObject, i) => indexObject.weeklyGain = weeklyGains.data[i]);
-        res.send({success: true, data: { result: indexesList }})
+        res.send({success: true, data: {result: indexesToPass, weeklyGains: weeklyGains.data}})
       });
     } else {
-      res.send({success: false, data: 'An Error occurred, try again later'});
+      res.send({success: false, data: indexData.data});
     }
   } else {
-    res.send(result)
+    res.send({success: false, data: userIndexes.data});
   }
 })
 
@@ -610,7 +620,7 @@ router.get("/own-indexes", async (req, res, next) => {
   let userTokenTemp = await decriptUserFromToken(data);
   const userFromToken = new ObjectID(userTokenTemp.id);
   let indexesToPass = [];
-  let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken });
+  let userIndexes = await mongo.findOne('users_indexes', { user_id: userFromToken }, includeId=true);
   let user = await mongo.findOne('users', { _id: userFromToken });
   let indexesList = [];
   let isValid = true;
@@ -639,10 +649,6 @@ router.get("/own-indexes", async (req, res, next) => {
             //private index but can be public
             canBePublic = true;
           }
-        } else {
-          isValid = false;
-        }
-        if(isValid) {
           indexesToPass.push({
             indexHash: indexData.data.result.index_hash,
             indexName: userIndexes[indexNumber].name,
@@ -681,9 +687,10 @@ const sleep = (milliseconds) => {
 router.post("/buy-or-sell-index", async (req, res, next) => {
   const data = JSON.parse(req.body.data);
   let userTokenTemp = await decriptUserFromToken(data.userToken);
-  const userFromToken = new ObjectID(data.isOwnIndex ? userTokenTemp: data.creatorId);
+  const userFromToken = new ObjectID(userTokenTemp);
+  const creatorId = new ObjectID(data.creatorId);
   let indexFromDB = await mongo.findOne('users_indexes', {
-    user_id: userFromToken,
+    user_id: data.isOwnIndex ? userFromToken : creatorId,
     indexes: {$elemMatch: {name: data.indexName}}
   });
   if(indexFromDB.success) {
@@ -731,11 +738,18 @@ router.post("/buy-or-sell-index", async (req, res, next) => {
           funding: [data.transactionData],
         });
         if (insertResult.success && insertResult.data === "inserted successfully.") {
-          let result = await mongo.updateOne('users_indexes', {user_id: indexFromDB.data.result.user_id }, { indexes: [data.transactionData] });
-          if(result.success && result.data.modifiedCount === 1) {
-            res.status(okCode).send();
+          let userIndexes = await mongo.findOne('users_indexes', {user_id: userFromToken });
+          if (insertResult.success) {
+            userIndexes.data.result.indexes.push({funding: data.transactionData, index_hash: indexFromUser.index_hash, is_private: false, name: indexFromUser.name})
+            let result = await mongo.updateOne('users_indexes', {user_id: userFromToken }, { indexes: userIndexes.data.result.indexes });
+            if(result.success && result.data.modifiedCount === 1) {
+              res.status(okCode).send();
+            } else {
+              res.statusMessage = result.success ? 'Someting went wrong...' : result.data;
+              res.status(serverErrorCode).send();
+            }
           } else {
-            res.statusMessage = result.success ? 'Someting went wrong...' : result.data;
+            res.statusMessage = insertResult.data;
             res.status(serverErrorCode).send();
           }
         } else {
