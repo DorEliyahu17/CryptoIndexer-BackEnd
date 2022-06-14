@@ -426,6 +426,22 @@ router.get("/backtest-exist-index", async (req, res, next) => {
   }
 });
 
+router.get("/backtest-top-10-index", (req, res, next) => {
+  let initialCash = req.query.initialCash;
+  if(!!!initialCash) {
+    initialCash = 1000;
+  }
+  let python = spawn(pythonCommand, ['../CryptoIndexer-Server/BacktestTopIndex.py', initialCash]);
+  let backtestResult = null;
+  python.stdout.on("data", (data) => { 
+   backtestResult = JSON.parse(data); 
+  });
+  python.on("close", (code) => {
+    console.log('Python finished with code ' + code);
+    res.send(backtestResult);
+  });
+});
+
 /***************** DataBase Utills API *****************/
 router.get("/supported-symbols-list", async (req, res, next) => {  
   let python = spawn(pythonCommand, ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
