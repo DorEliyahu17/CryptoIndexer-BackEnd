@@ -12,6 +12,7 @@ const okCode = 200;
 const clientReqHasProblem = 400;
 const serverErrorCode = 500;
 const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3.10';
+const locationPrefix = process.env.NODE_ENV === "development" ? '..' : '/home/CryptoIndexer-Server';
 
 function costumeHash(string) {
   return createHash('sha256').update(string).digest('hex');
@@ -381,7 +382,7 @@ router.get("/backtest-new-index", (req, res, next) => {
     initialCash = 1000;
   }
   if (data) {
-    let python = spawn(pythonCommand, ['../CryptoIndexer-Server/BacktestCustomIndex.py', JSON.stringify(data), initialCash]);
+    let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/BacktestCustomIndex.py`, JSON.stringify(data), initialCash]);
     let backtestResult = null;
     python.stdout.on("data", (data) => { 
      backtestResult = JSON.parse(data); 
@@ -409,7 +410,7 @@ router.get("/backtest-exist-index", async (req, res, next) => {
       for (let i = 0; i < indexData.data.result.symbols_weight.length; i++) {
         symbols_weight.push({symbol: indexData.data.result.symbols_weight[i].symbol, weight: parseFloat(indexData.data.result.symbols_weight[i].weight)})
       }
-      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/BacktestExistingCustomIndex.py', JSON.stringify(symbols_weight), initialCash]);
+      let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/BacktestExistingCustomIndex.py`, JSON.stringify(symbols_weight), initialCash]);
       let backtestResult = null;
       python.stdout.on("data", (data) => { 
        backtestResult = JSON.parse(data); 
@@ -431,7 +432,7 @@ router.get("/backtest-top-10-index", (req, res, next) => {
   if(!!!initialCash) {
     initialCash = 1000;
   }
-  let python = spawn(pythonCommand, ['../CryptoIndexer-Server/BacktestTopIndex.py', initialCash]);
+  let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/BacktestTopIndex.py`, initialCash]);
   let backtestResult = null;
   python.stdout.on("data", (data) => { 
    backtestResult = JSON.parse(data); 
@@ -444,7 +445,7 @@ router.get("/backtest-top-10-index", (req, res, next) => {
 
 /***************** DataBase Utills API *****************/
 router.get("/supported-symbols-list", async (req, res, next) => {  
-  let python = spawn(pythonCommand, ['../CryptoIndexer-Server/GetAllSymbolsInfo.py']);
+  let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/GetAllSymbolsInfo.py`]);
   let result = {"success": false, "data": 'Python Error'};
   
   python.stderr.setEncoding('utf-8');
@@ -464,8 +465,8 @@ router.get("/supported-symbols-list", async (req, res, next) => {
   });
 });
 
-router.get("/home-page-supported-symbols-list", async (req, res, next) => {  
-  let python = spawn(pythonCommand, ['../CryptoIndexer-Server/GetAllSymbolsPrices.py']);
+router.get("/home-page-supported-symbols-list", async (req, res, next) => {
+  let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/GetAllSymbolsPrices.py`]);
   let result = {"success": false, "data": 'Python Error'};
   
   python.stderr.setEncoding('utf-8');
@@ -525,7 +526,7 @@ router.get("/all-indexes-list", async (req, res, next) => {
       }
     }
     if(isValid) {
-      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(symbolWeightForWeeklyGain)]);
+      let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/IndexesWeeklyGains.py`, JSON.stringify(symbolWeightForWeeklyGain)]);
       let weeklyGains = null;
       python.stdout.on("data", (data) => { 
         weeklyGains = JSON.parse(data); 
@@ -596,7 +597,7 @@ router.get("/all-invested-indexes-list", async (req, res, next) => {
       }
     }
     if(isValid) {
-      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
+      let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/IndexesWeeklyGains.py`, JSON.stringify(indexesList)]);
       let weeklyGains = null;
       python.stdout.on("data", (data) => { 
         weeklyGains = JSON.parse(data); 
@@ -679,7 +680,7 @@ router.get("/own-indexes", async (req, res, next) => {
       }
     }
     if(isValid) {
-      let python = spawn(pythonCommand, ['../CryptoIndexer-Server/IndexesWeeklyGains.py', JSON.stringify(indexesList)]);
+      let python = spawn(pythonCommand, [`${locationPrefix}/CryptoIndexer-Server/IndexesWeeklyGains.py`, JSON.stringify(indexesList)]);
       let weeklyGains = null;
       python.stdout.on("data", (data) => { 
         weeklyGains = JSON.parse(data); 
