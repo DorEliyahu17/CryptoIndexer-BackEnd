@@ -12,7 +12,7 @@ const okCode = 200;
 const clientReqHasProblem = 400;
 const serverErrorCode = 500;
 const pythonCommand = process.env.NODE_ENV === "development" ? 'python' : 'python3.10';
-const locationPrefix = process.env.NODE_ENV === "development" ? '..' : '/home/CryptoIndexer-Server';
+const locationPrefix = process.env.NODE_ENV === "development" ? '..' : '/home';
 
 function costumeHash(string) {
   return createHash('sha256').update(string).digest('hex');
@@ -540,7 +540,7 @@ router.get("/all-indexes-list", async (req, res, next) => {
       res.send({success: false, data: 'An Error occurred, try again later'});
     }
   } else {
-    res.send(result)
+    res.send({success: true, data: { result: [] }})
   }
 });
 
